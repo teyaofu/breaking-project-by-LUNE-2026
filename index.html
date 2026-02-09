@@ -219,28 +219,67 @@
     measurementId: "G-7KD2654Y69"
   };
 
-   const app = initializeApp(firebaseConfig);
-   const auth = getAuth(app);
-   const db = getFirestore(app);
+  // ===== Firebase init =====
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-// Google Provider
+// ===== DOM（一定要在用 btnLogin 之前先抓）=====
+const $ = (id) => document.getElementById(id);
+
+const btnLogin   = $("btnLogin");
+const btnLogout  = $("btnLogout");
+
+const loginState = $("loginState");
+const roleState  = $("roleState");
+const gateMsg    = $("gateMsg");
+const debugMsg   = $("debugMsg");
+
+const appPanel   = $("appPanel");
+const adminPanel = $("adminPanel");
+
+// Debug helper
+function dbg(line) {
+  debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
+}
+
+// ===== Basic debug info =====
+debugMsg.textContent = "";
+dbg("BOOT OK");
+dbg(`url=${location.href}`);
+dbg(`ua=${navigator.userAgent}`);
+dbg(`cookieEnabled=${navigator.cookieEnabled}`);
+
+// localStorage test（iOS 有時會被限制）
+try {
+  localStorage.setItem("__t", String(Date.now()));
+  localStorage.removeItem("__t");
+  dbg("localStorage=OK");
+} catch (e) {
+  dbg("localStorage=BLOCKED");
+}
+
+// ===== Auth wiring（放在 DOM 都抓完之後）=====
 const provider = new GoogleAuthProvider();
 
-// ✅ 先設定 persistence（iOS Safari 很重要）
+// 先設定 persistence（iOS Safari 很重要）
 setPersistence(auth, browserLocalPersistence)
   .then(() => dbg("persistence=browserLocal OK"))
   .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
 
-// 登入按鈕 → Safari 用 redirect 最穩
+// 登入：Safari 用 redirect
 btnLogin.onclick = () => {
   dbg("LOGIN CLICK → redirect");
   signInWithRedirect(auth, provider);
 };
 
 // 登出
-btnLogout.onclick = () => signOut(auth);
+btnLogout.onclick = () => {
+  dbg("LOGOUT CLICK");
+  signOut(auth);
+};
 
-// ✅ 回到頁面時先接 redirect 結果（有就會拿到 user）
+// 回到頁面：先吃 redirect 結果
 getRedirectResult(auth)
   .then((result) => {
     if (result?.user) {
@@ -251,7 +290,7 @@ getRedirectResult(auth)
   })
   .catch((e) => dbg("Redirect ERR=" + (e?.code || e?.message || e)));
 
-// ✅ 只留這一個：監聽登入狀態（UI 以這裡為準）
+// 用 onAuthStateChanged 決定 UI
 onAuthStateChanged(auth, (user) => {
   if (user) {
     dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
@@ -267,16 +306,6 @@ onAuthStateChanged(auth, (user) => {
     appPanel.style.display = "none";
   }
 });
-  // DOM
-  const $ = (id) => document.getElementById(id);
-
-  const btnLogin   = $("btnLogin");
-  const btnLogout  = $("btnLogout");
-
-  const loginState = $("loginState");
-  const roleState  = $("roleState");
-  const gateMsg    = $("gateMsg");
-  const debugMsg   = $("debugMsg");
  // ✅ Debug 基礎資訊
 function dbg(line){
   debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
