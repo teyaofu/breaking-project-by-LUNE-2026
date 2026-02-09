@@ -1,40 +1,208 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Login Test</title>
+<title>BATTLE TRAINING PRO</title>
+
+<!-- 截圖用 -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<!-- 圖表用 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <style>
-  body{margin:0;font-family:Arial;background:#0b0b12;color:#fff}
-  .wrap{max-width:820px;margin:auto;padding:16px}
-  .box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
-  button{padding:12px 14px;border:0;border-radius:12px;font-weight:900;cursor:pointer}
-  .p{background:linear-gradient(135deg,#ff00c8,#00f5ff);color:#000}
-  .g{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.14)}
-  pre{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.35);padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.10)}
+  body{margin:0;background:radial-gradient(circle at top,#3a0ca3,#000);font-family:Arial,sans-serif;color:#fff;min-height:100vh}
+  .container{max-width:980px;margin:auto;padding:16px;text-align:center}
+  h1{letter-spacing:3px;color:#00f5ff;text-shadow:0 0 12px #00f5ff;margin:10px 0 6px}
+  .sub{font-size:13px;color:#cfcfcf;line-height:1.45;margin-bottom:10px}
+  .panel{text-align:left;background:rgba(0,0,0,.55);border:1px solid rgba(0,245,255,.25);border-radius:16px;padding:14px;margin:12px 0;box-shadow:0 0 18px rgba(0,245,255,.12)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{padding:14px 16px;border:none;border-radius:14px;font-weight:900;cursor:pointer}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .primary{background:linear-gradient(135deg,#ff00c8,#00f5ff);color:#000;box-shadow:0 0 14px rgba(255,0,200,.25)}
+  .secondary{background:linear-gradient(135deg,#00f5ff,#ffe600);color:#000}
+  .ghost{background:linear-gradient(135deg,rgba(255,0,200,.18),rgba(0,245,255,.18));color:#fff;border:1px solid rgba(255,255,255,.16)}
+  .danger{background:linear-gradient(135deg,#ff3b3b,#ff00c8);color:#000}
+  input,select{padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);color:#fff;outline:none}
+  select{min-width:260px}
+  .muted{color:#bfbfbf}
+  .ok{color:#00f5ff;font-weight:900}
+  .bad{color:#ff6b6b;font-weight:900}
+  .divider{height:1px;background:rgba(255,255,255,.10);margin:12px 0}
+  .pill{padding:10px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font-size:14px;line-height:1.35;margin-top:8px}
+  .pill b{color:#00f5ff}
+
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:12px}
+  .card{perspective:1000px}
+  .card-inner{position:relative;width:100%;padding-top:135%;transition:transform .8s;transform-style:preserve-3d}
+  .card.flip .card-inner{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;border-radius:18px;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:14px;font-weight:900;text-align:center}
+  .back{background:linear-gradient(135deg,#111,#333);border:2px solid #00f5ff;font-size:22px;letter-spacing:2px}
+  .front{background:linear-gradient(135deg,#ff00c8,#3a0ca3);transform:rotateY(180deg)}
+  .round{font-size:14px;color:#ffe600;margin-bottom:6px}
+  .move{font-size:20px;color:#00f5ff;margin-bottom:6px}
+  .rule{font-size:16px;color:#fff}
+
+  /* Ratings */
+  .ratingGrid{display:grid;gap:10px;margin-top:10px}
+  .ratingRow{display:grid;grid-template-columns:120px 1fr 44px;gap:10px;align-items:center}
+  .ratingRow label{font-weight:900;color:#00f5ff;font-size:13px}
+  .ratingRow input[type="range"]{width:100%}
+  .scoreBox{text-align:center;padding:8px 6px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);font-weight:900}
+
+  /* History */
+  details{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:14px;padding:10px 10px}
+  summary{cursor:pointer;font-weight:900;color:#00f5ff;outline:none}
+  .histList{display:grid;gap:10px;margin-top:10px}
+  .grid2{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:900px){ .grid2{grid-template-columns:1fr 1fr;} }
+  canvas{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:8px}
 </style>
 </head>
+
 <body>
-<div class="wrap">
-  <h2>Firebase Google 登入測試</h2>
-  <div class="box">
-    <p>這頁只測「登入」是否能成功跳轉回來。成功後我再把完整工具版貼回去。</p>
-    <button id="login" class="p">Google 登入</button>
-    <button id="logout" class="g">登出</button>
-    <p><b>狀態：</b><span id="state">尚未登入</span></p>
-    <p><b>訊息：</b></p>
-    <pre id="msg">（等待操作）</pre>
+<div class="container">
+  <h1>BATTLE TRAINING</h1>
+  <div class="sub">
+    流程：抽題預覽 → 練完評分 → 確認紀錄（雲端存檔）｜抽題會避開「上一筆確認」整組內容不重複
   </div>
+
+  <!-- LOGIN -->
+  <div class="panel">
+    <div class="row">
+      <div id="loginState">尚未登入</div>
+      <div id="roleState" class="muted"></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn primary" id="btnLogin">Google 登入</button>
+      <button class="btn ghost" id="btnLogout">登出</button>
+    </div>
+    <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
+    <div id="debugMsg" class="muted" style="margin-top:6px;"></div>
+  </div>
+
+  <!-- APP -->
+  <div id="appPanel" class="panel" style="display:none;">
+    <div class="row" style="justify-content:space-between;">
+      <div>
+        <div class="ok">✅ 你在允許名單內</div>
+        <div class="muted" id="userTip"></div>
+      </div>
+      <button class="btn ghost" id="btnShot" disabled>📸 匯出圖片</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row" style="justify-content:center;">
+      <button class="btn primary" id="btnStart">🚀 抽訓練題目（預覽）</button>
+      <button class="btn ghost" id="btnReroll" disabled>🎲 重抽（預覽）</button>
+      <button class="btn secondary" id="btnConfirm" disabled>✅ 確認紀錄（雲端）</button>
+    </div>
+
+    <!-- Share Area -->
+    <div id="shareArea">
+      <div class="pill">
+        <span class="muted">分享抬頭：</span>
+        <b id="shareTitle">—</b>
+        <div class="muted" id="shareTime">—</div>
+      </div>
+
+      <div id="cards" class="cards"></div>
+
+      <div class="divider"></div>
+
+      <div style="font-weight:900;color:#ffe600;margin-bottom:6px;">訓練評分（1~5）</div>
+      <div class="ratingGrid">
+        <div class="ratingRow"><label>音樂性</label><input id="r_music" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_music">3</div></div>
+        <div class="ratingRow"><label>質地</label><input id="r_texture" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_texture">3</div></div>
+        <div class="ratingRow"><label>速度差</label><input id="r_speed" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_speed">3</div></div>
+        <div class="ratingRow"><label>保持移動</label><input id="r_move" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_move">3</div></div>
+        <div class="ratingRow"><label>整體</label><input id="r_overall" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_overall">3</div></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- My History + Charts -->
+    <details open>
+      <summary>📚 我的雲端歷史（最近 10 筆）＋統計</summary>
+      <div class="grid2" style="margin-top:12px;">
+        <div>
+          <div class="pill"><b>最近 10 筆</b><div class="muted">（只記錄你按「確認紀錄」的內容）</div></div>
+          <div id="myHistory" class="histList"></div>
+        </div>
+        <div>
+          <div class="pill"><b>評分統計</b><div class="muted">折線＝整體分｜長條＝各面向平均</div></div>
+          <canvas id="chartLine" height="220"></canvas>
+          <div style="height:12px;"></div>
+          <canvas id="chartBar" height="220"></canvas>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="adminPanel" class="panel" style="display:none;">
+    <div class="ok">🛡️ 教練後台：名單管理＋查看學生紀錄＋統計</div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <input id="addEmail" placeholder="新增允許選手 email（例：dancer@gmail.com）" />
+      <button class="btn secondary" id="btnAdd">新增</button>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <input id="removeEmail" placeholder="移除/停權選手 email" />
+      <button class="btn danger" id="btnRemove">移除</button>
+    </div>
+    <div id="adminMsg" class="muted" style="margin-top:10px;"></div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <select id="studentSelect">
+        <option value="">（選擇學生）</option>
+      </select>
+      <button class="btn ghost" id="btnLoadStudent">載入學生資料</button>
+    </div>
+
+    <div id="studentArea" style="display:none;">
+      <div class="pill">
+        <span class="muted">學生：</span><b id="studentTitle">—</b>
+        <div class="muted" id="studentMeta">—</div>
+      </div>
+
+      <div class="grid2" style="margin-top:12px;">
+        <div>
+          <div class="pill"><b>學生最近 10 筆</b></div>
+          <div id="studentHistory" class="histList"></div>
+        </div>
+        <div>
+          <div class="pill"><b>學生評分統計</b></div>
+          <canvas id="chartLineStu" height="220"></canvas>
+          <div style="height:12px;"></div>
+          <canvas id="chartBarStu" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import {
     getAuth, GoogleAuthProvider,
-    signInWithRedirect, getRedirectResult,
-    signInWithPopup, signOut, onAuthStateChanged
+    signInWithRedirect, getRedirectResult, signInWithPopup,
+    signOut, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, deleteDoc,
+    collection, addDoc, getDocs, query, orderBy, limit
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+  // ===== Firebase Config (你的) =====
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
     authDomain: "breaking-814bf.firebaseapp.com",
@@ -47,64 +215,18 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ===== Training Logic =====
+  const fixed = ["Top Rock","Go Down","Footwork","Set"];
+  const random = ["音樂表現","質地呈現","速度差呈現","保持移動"];
+
+  let preview = null; // { cards, sig, ts }
+  let lineChart = null, barChart = null;
+  let lineChartStu = null, barChartStu = null;
 
   const $ = (id)=>document.getElementById(id);
-  const log = (t)=>{ $("msg").textContent = t; };
 
-  // 重要：iOS/手機用 redirect、桌機用 popup
-  $("login").onclick = async ()=>{
-    try{
-      log("開始登入…（若跳轉到 Google 是正常）");
-      const provider = new GoogleAuthProvider();
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if(isMobile){
-        await signInWithRedirect(auth, provider);
-        return;
-      }else{
-        await signInWithPopup(auth, provider);
-        log("Popup 登入完成，等待狀態更新…");
-      }
-    }catch(e){
-      log("登入觸發失敗：\n" + (e?.code||"") + "\n" + (e?.message||""));
-      alert("登入失敗：\n" + (e?.code||"") + "\n" + (e?.message||""));
-      console.error(e);
-    }
-  };
-
-  $("logout").onclick = async ()=>{
-    await signOut(auth);
-    log("已登出");
-  };
-
-  // redirect 回來後一定會跑這段（抓錯誤碼最關鍵）
-  getRedirectResult(auth).then((res)=>{
-    if(res?.user){
-      log("Redirect 回來成功：\n" + res.user.email);
-    }else{
-      log("Redirect 結果：沒有使用者（可能尚未登入或被阻擋）");
-    }
-  }).catch((e)=>{
-    log("Redirect 回來失敗：\n" + (e?.code||"") + "\n" + (e?.message||""));
-    alert("Redirect 失敗：\n" + (e?.code||"") + "\n" + (e?.message||""));
-    console.error(e);
-  });
-
-  onAuthStateChanged(auth, (user)=>{
-    if(user){
-      $("state").textContent = "✅ 已登入：" + user.email;
-    }else{
-      $("state").textContent = "尚未登入";
-    }
-  });
-
-  // 額外資訊（幫你判斷是不是網址/瀏覽器問題）
-  log(
-    "UserAgent:\n" + navigator.userAgent +
-    "\n\nOrigin:\n" + location.origin +
-    "\n\nHref:\n" + location.href +
-    "\n\n請按『Google 登入』後，把跳出的錯誤碼貼給我。"
-  );
-</script>
-</body>
-</html>
+  function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
+  function signature(cards){ return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||"); }
+  function fmtT
