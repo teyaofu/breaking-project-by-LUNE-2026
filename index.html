@@ -32,7 +32,6 @@
   .pill{padding:10px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font-size:14px;line-height:1.35;margin-top:8px}
   .pill b{color:#00f5ff}
 
-  /* Cards */
   .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:12px}
   .card{perspective:1000px}
   .card-inner{position:relative;width:100%;padding-top:135%;transition:transform .8s;transform-style:preserve-3d}
@@ -44,14 +43,12 @@
   .move{font-size:20px;color:#00f5ff;margin-bottom:6px}
   .rule{font-size:16px;color:#fff}
 
-  /* Ratings */
   .ratingGrid{display:grid;gap:10px;margin-top:10px}
   .ratingRow{display:grid;grid-template-columns:120px 1fr 44px;gap:10px;align-items:center}
   .ratingRow label{font-weight:900;color:#00f5ff;font-size:13px}
   .ratingRow input[type="range"]{width:100%}
   .scoreBox{text-align:center;padding:8px 6px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);font-weight:900}
 
-  /* History */
   details{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:14px;padding:10px 10px}
   summary{cursor:pointer;font-weight:900;color:#00f5ff;outline:none}
   .histList{display:grid;gap:10px;margin-top:10px}
@@ -79,6 +76,7 @@
       <button class="btn ghost" id="btnLogout">登出</button>
     </div>
     <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
+    <div id="debugMsg" class="muted" style="margin-top:6px;"></div>
   </div>
 
   <!-- APP -->
@@ -99,7 +97,7 @@
       <button class="btn secondary" id="btnConfirm" disabled>✅ 確認紀錄（雲端）</button>
     </div>
 
-    <!-- Share Area (cards + ratings will be screenshot) -->
+    <!-- Share Area -->
     <div id="shareArea">
       <div class="pill">
         <span class="muted">分享抬頭：</span>
@@ -191,7 +189,11 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import {
+    getAuth, GoogleAuthProvider,
+    signInWithRedirect, getRedirectResult,
+    signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc,
     collection, addDoc, getDocs, query, orderBy, limit
@@ -205,6 +207,7 @@
     storageBucket: "breaking-814bf.firebasestorage.app",
     messagingSenderId: "1061448738181",
     appId: "1:1061448738181:web:29ce05df24b74bdf15d0ec",
+    measurementId: "G-7KD2654Y69"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -222,14 +225,5 @@
   const $ = (id)=>document.getElementById(id);
 
   function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
-
-  function signature(cards){
-    return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||");
-  }
-
-  function fmtTime(ts){
-    const d = new Date(ts);
-    return d.toLocaleString();
-  }
-
-  function rati
+  function signature(cards){ return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||"); }
+  function fmtTime(ts){ return new Date(ts).toLocaleStri
