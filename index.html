@@ -71,37 +71,78 @@ const firebaseConfig = {
   appId: "1:1061448738181:web:29ce05df24b74bdf15d0ec"
 };
 
+// ===== Firebase Init =====
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// iOS Safari 需要 persistence
 await setPersistence(auth, browserLocalPersistence);
 
 const provider = new GoogleAuthProvider();
 
+// 取得畫面元素
 const loginState = document.getElementById("loginState");
+const roleState = document.getElementById("roleState");
 const gateMsg = document.getElementById("gateMsg");
+const debugMsg = document.getElementById("debugMsg");
 const appPanel = document.getElementById("appPanel");
+const adminPanel = document.getElementById("adminPanel");
+
 const btnLogin = document.getElementById("btnLogin");
 const btnLogout = document.getElementById("btnLogout");
-const btnStart = document.getElementById("btnStart");
-const btnConfirm = document.getElementById("btnConfirm");
-const cardsBox = document.getElementById("cards");
-const shareTitle = document.getElementById("shareTitle");
 
-btnLogin.onclick = async()=>{
-  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    await signInWithRedirect(auth, provider);
-  } else {
-    await signInWithPopup(auth, provider);
+// ===== 登入按鈕 =====
+btnLogin.onclick = async () => {
+  try {
+    // iOS 用 redirect，其它用 popup
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
+  } catch (e) {
+    debugMsg.textContent = "登入錯誤：" + e.message;
   }
 };
-btnLogout.onclick = ()=>signOut(auth);
 
-onAuthStateChanged(auth, async user=>{
-  if(!user){
-    loginState.textContent="尚未登入";
-    appPanel.style.display="none";
+// ===== 登出按鈕 =====
+btnLogout.onclick = () => signOut(auth);
+
+// ===== 監聽登入狀態（真正關鍵在這）=====
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    loginState.textContent = "尚未登入";
+    roleState.textContent = "";
+    appPanel.style.display = "none";
+    adminPanel.style.display = "none";
     return;
+  }
+
+  loginState.textContent = "已登入：" + user.email;
+
+  // 🔐 檢查是否在允許名單
+  const allowRef = doc(db, "allowUsers", user.email);
+  const allowSnap = await getDoc(allowRef);
+
+  if (!allowSnap.exists()) {
+    gateMsg.textContent = "你沒有權限使用這個系統";
+    appPanel.style.display = "none";
+    return;
+  }
+
+  gateMsg.textContent = "";
+
+  const role = allowSnap.data().role || "student";
+  roleState.textContent = "角色：" + role;
+
+  // 顯示對應畫面
+  if (role === "coach") {
+    adminPanel.style.display = "block";
+  } else {
+    appPanel.style.display = "block";
+  }
+});
   }
   loginState.textContent="已登入："+user.email;
   const allowRef=doc(db,"allowUsers",user.email);
