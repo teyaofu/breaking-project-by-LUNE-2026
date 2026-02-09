@@ -79,7 +79,7 @@
       <button class="btn ghost" id="btnLogout">登出</button>
     </div>
     <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
-    <div id="debugMsg" class="muted" style="margin-top:6px;"></div>
+    <div id="debugMsg" style="margin-top:10px;color:#ffe600;font-size:16px;font-weight:900;white-space:pre-wrap;"></div>
   </div>
 
   <!-- APP -->
@@ -233,7 +233,9 @@
   const roleState  = $("roleState");
   const gateMsg    = $("gateMsg");
   const debugMsg   = $("debugMsg");
-  debugMsg.textContent = `url=${location.href}`;
+  debugMsg.textContent = `BOOT OK
+url=${location.href}
+ua=${navigator.userAgent}`;
   const appPanel   = $("appPanel");
   const adminPanel = $("adminPanel");
 
