@@ -100,6 +100,7 @@
       <button class="btn secondary" id="btnConfirm" disabled>✅ 確認紀錄（雲端）</button>
     </div>
 
+    <!-- Share Area -->
     <div id="shareArea">
       <div class="pill">
         <span class="muted">分享抬頭：</span>
@@ -123,6 +124,7 @@
 
     <div class="divider"></div>
 
+    <!-- My History + Charts -->
     <details open>
       <summary>📚 我的雲端歷史（最近 10 筆）＋統計</summary>
       <div class="grid2" style="margin-top:12px;">
@@ -193,15 +195,30 @@
   import {
     getAuth, GoogleAuthProvider,
     signInWithPopup, signInWithRedirect, getRedirectResult,
-    signOut, onAuthStateChanged,
-    setPersistence, browserLocalPersistence
+    signOut, onAuthStateChanged, setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc,
     collection, addDoc, getDocs, query, orderBy, limit
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-  // ===== Firebase Config (你的) =====
+  // =========================
+  // 0) 你要注意的「兩個集合名稱」
+  // =========================
+  // 允許名單集合：每個 docId = email
+  // 你原本畫面叫「霹靂舞」，我就沿用（不要改，免得你再找不到）
+  const ALLOWLIST_COL = "霹靂舞";
+
+  // 教練名單集合：每個 docId = email，欄位 role: "coach"
+  // 你可以改成你想要的名字，但要跟 Firestore 一致
+  const COACH_COL = "coaches";
+
+  // 紀錄：records/{email}/items/{autoId} + records/{email}/meta (存 lastSig)
+  const RECORDS_ROOT = "records";
+
+  // =========================
+  // 1) Firebase Config（你的）
+  // =========================
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
     authDomain: "breaking-814bf.firebaseapp.com",
@@ -212,268 +229,591 @@
     measurementId: "G-7KD2654Y69"
   };
 
-  // ===== 你 Firestore 的集合名稱（照你截圖：霹靂舞）=====
-  const ALLOWLIST_COL = "霹靂舞";     // docId = email；可選欄位 role:"coach"
-  const RECORDS_ROOT  = "records";    // 你的紀錄存放根集合（下面會用 records/{email}/items/..）
-
-  // ===== DOM =====
-  const loginState = document.getElementById("loginState");
-  const roleState  = document.getElementById("roleState");
-  const gateMsg    = document.getElementById("gateMsg");
-  const debugMsg   = document.getElementById("debugMsg");
-
-  const btnLogin   = document.getElementById("btnLogin");
-  const btnLogout  = document.getElementById("btnLogout");
-
-  const appPanel   = document.getElementById("appPanel");
-  const adminPanel = document.getElementById("adminPanel");
-
-  const userTip    = document.getElementById("userTip");
-  const btnShot    = document.getElementById("btnShot");
-  const btnStart   = document.getElementById("btnStart");
-  const btnReroll  = document.getElementById("btnReroll");
-  const btnConfirm = document.getElementById("btnConfirm");
-
-  const shareTitle = document.getElementById("shareTitle");
-  const shareTime  = document.getElementById("shareTime");
-  const cardsBox   = document.getElementById("cards");
-
-  // ratings
-  const ratings = [
-    ["music","音樂性"],["texture","質地"],["speed","速度差"],["move","保持移動"],["overall","整體"]
-  ];
-  function syncRanges(){
-    for(const [k] of ratings){
-      const r = document.getElementById("r_"+k);
-      const s = document.getElementById("s_"+k);
-      if(!r||!s) continue;
-      s.textContent = r.value;
-      r.oninput = () => s.textContent = r.value;
-    }
-  }
-  syncRanges();
-
-  // ===== App init =====
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+
+  // =========================
+  // 2) DOM
+  // =========================
+  const $ = (id) => document.getElementById(id);
+
+  const btnLogin   = $("btnLogin");
+  const btnLogout  = $("btnLogout");
+
+  const loginState = $("loginState");
+  const roleState  = $("roleState");
+  const gateMsg    = $("gateMsg");
+  const debugMsg   = $("debugMsg");
+
+  const appPanel   = $("appPanel");
+  const adminPanel = $("adminPanel");
+
+  const btnShot    = $("btnShot");
+  const btnStart   = $("btnStart");
+  const btnReroll  = $("btnReroll");
+  const btnConfirm = $("btnConfirm");
+
+  const shareTitle = $("shareTitle");
+  const shareTime  = $("shareTime");
+  const cardsBox   = $("cards");
+  const userTip    = $("userTip");
+
+  const myHistory  = $("myHistory");
+  const chartLineEl= $("chartLine");
+  const chartBarEl = $("chartBar");
+
+  const addEmail   = $("addEmail");
+  const removeEmail= $("removeEmail");
+  const btnAdd     = $("btnAdd");
+  const btnRemove  = $("btnRemove");
+  const adminMsg   = $("adminMsg");
+
+  const studentSelect = $("studentSelect");
+  const btnLoadStudent= $("btnLoadStudent");
+  const studentArea   = $("studentArea");
+  const studentTitle  = $("studentTitle");
+  const studentMeta   = $("studentMeta");
+  const studentHistory= $("studentHistory");
+  const chartLineStuEl= $("chartLineStu");
+  const chartBarStuEl = $("chartBarStu");
+
+  // =========================
+  // 3) Auth：iOS Safari 用 Redirect 最穩
+  // =========================
   const provider = new GoogleAuthProvider();
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
 
-  function isIOSSafari(){
-    const ua = navigator.userAgent || "";
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-    return isIOS && isSafari;
+  await setPersistence(auth, browserLocalPersistence);
+
+  // 接 redirect 回來的結果（必做）
+  try { await getRedirectResult(auth); }
+  catch (e) {
+    // 沒有結果也可能會進來；顯示錯誤碼才好查
+    debugMsg.textContent = e?.code ? `redirect: ${e.code}` : "";
   }
 
-  function uiLoggedOut(){
-    loginState.textContent = "尚未登入";
-    roleState.textContent = "";
+  async function doLogin(){
+    debugMsg.textContent = "";
+    // iOS Safari：直接 redirect
+    if (isIOS && isSafari){
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+    // 其他：先 popup，失敗 fallback redirect
+    try{
+      await signInWithPopup(auth, provider);
+    }catch(e){
+      debugMsg.textContent = e?.code ? `popup: ${e.code} → 改用 redirect` : "popup 失敗 → 改用 redirect";
+      await signInWithRedirect(auth, provider);
+    }
+  }
+
+  async function doLogout(){
+    debugMsg.textContent = "";
+    await signOut(auth);
+  }
+
+  btnLogin.addEventListener("click", doLogin);
+  btnLogout.addEventListener("click", doLogout);
+
+  // =========================
+  // 4) 抽題資料
+  // =========================
+  const fixedRounds = ["Top Rock","Go Down","Footwork","Set"];
+  const pool = {
+    "Top Rock": ["Rock 基本律動", "方向變化", "層次切換", "節奏斷點", "手臂線條"],
+    "Go Down":  ["乾淨落地", "控制重心", "突然下降", "地板切入", "假動作落地"],
+    "Footwork": ["節奏腳步", "角度轉換", "近身滑動", "加速爆點", "連接流暢"],
+    "Set":      ["Freeze 定點", "Power 連接", "假 power", "角度 pose", "呼吸停頓"]
+  };
+  const rules = ["音樂表現","質地呈現","速度差呈現","保持移動","空間運用","角度變化","呼吸控制","乾淨度"];
+
+  function shuffle(arr){
+    const a = [...arr];
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  function nowText(ts){
+    const d = new Date(ts);
+    return d.toLocaleString();
+  }
+
+  // =========================
+  // 5) 狀態
+  // =========================
+  let currentUser = null;
+  let isAllowed = false;
+  let isCoach = false;
+
+  let preview = null; // {ts, cards:[{round,move,rule}], sig}
+  let chartLine = null, chartBar = null;
+  let chartLineStu = null, chartBarStu = null;
+
+  // =========================
+  // 6) Firestore 路徑 helpers
+  // =========================
+  function allowDoc(email){
+    return doc(db, ALLOWLIST_COL, email);
+  }
+  function coachDoc(email){
+    return doc(db, COACH_COL, email);
+  }
+  function recordsMetaDoc(email){
+    return doc(db, RECORDS_ROOT, email, "meta", "state");
+  }
+  function recordsItemsCol(email){
+    return collection(db, RECORDS_ROOT, email, "items");
+  }
+
+  // =========================
+  // 7) Gate：檢查允許名單 + 教練角色
+  // =========================
+  async function checkGate(user){
     gateMsg.textContent = "";
-    appPanel.style.display = "none";
-    adminPanel.style.display = "none";
-    btnShot.disabled = true;
-    btnReroll.disabled = true;
-    btnConfirm.disabled = true;
-  }
-
-  function showDebug(s){
-    debugMsg.textContent = s || "";
-  }
-
-  async function checkGateAndShow(email){
-    gateMsg.textContent = "";
     roleState.textContent = "";
 
-    // 允許名單：霹靂舞/{email}
-    const ref = doc(db, ALLOWLIST_COL, email);
-    const snap = await getDoc(ref);
-
-    if(!snap.exists()){
-      gateMsg.textContent = "你沒有權限使用這個系統（不在允許名單）";
-      appPanel.style.display = "none";
-      adminPanel.style.display = "none";
+    if(!user?.email){
+      isAllowed = false;
+      isCoach = false;
       return;
     }
 
-    const data = snap.data() || {};
-    const role = data.role || "student";
-    roleState.textContent = "角色：" + role;
+    const email = user.email.toLowerCase();
 
-    userTip.textContent = email;
+    // 允許名單
+    const aSnap = await getDoc(allowDoc(email));
+    isAllowed = aSnap.exists();
 
-    if(role === "coach"){
-      adminPanel.style.display = "block";
-      appPanel.style.display = "none";
-    }else{
-      appPanel.style.display = "block";
-      adminPanel.style.display = "none";
-    }
+    // 教練名單（可選）
+    const cSnap = await getDoc(coachDoc(email));
+    isCoach = cSnap.exists() && (cSnap.data()?.role === "coach");
 
-    btnShot.disabled = false;
+    if(isCoach) roleState.textContent = "（教練）";
   }
 
-  // ===== 訓練抽卡（先做最穩的版本）=====
-  const fixedRounds = ["Top Rock","Go Down","Footwork","Set"];
-  const randomRules = ["音樂表現","質地呈現","速度差呈現","保持移動"];
-
-  let preview = null; // { ts, cards:[{round,move,rule}] }
-
-  function shuffle(a){
-    const arr = [...a];
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [arr[i],arr[j]]=[arr[j],arr[i]];
+  // =========================
+  // 8) UI 控制
+  // =========================
+  function setUI(){
+    if(!currentUser){
+      loginState.textContent = "尚未登入";
+      appPanel.style.display = "none";
+      adminPanel.style.display = "none";
+      gateMsg.textContent = "";
+      return;
     }
-    return arr;
+
+    loginState.textContent = `已登入：${currentUser.email || ""}`;
+
+    if(!isAllowed){
+      appPanel.style.display = "none";
+      adminPanel.style.display = "none";
+      gateMsg.textContent = "你不在允許名單內（請教練把你的 email 加入名單）";
+      return;
+    }
+
+    gateMsg.textContent = "";
+    appPanel.style.display = "block";
+    userTip.textContent = `使用者：${currentUser.email}`;
+
+    // 教練才顯示後台
+    adminPanel.style.display = isCoach ? "block" : "none";
+  }
+
+  // =========================
+  // 9) 產生預覽（避開上一筆確認）
+  // =========================
+  function signature(cards){
+    // 用 round|move|rule 組合成唯一簽名
+    return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||");
+  }
+
+  async function getLastSig(email){
+    const snap = await getDoc(recordsMetaDoc(email));
+    return snap.exists() ? (snap.data()?.lastSig || "") : "";
+  }
+
+  async function setLastSig(email, sig){
+    await setDoc(recordsMetaDoc(email), { lastSig: sig }, { merge:true });
   }
 
   function renderCards(cards){
     cardsBox.innerHTML = "";
-    for(const c of cards){
+    cards.forEach((c, idx) => {
       const el = document.createElement("div");
       el.className = "card";
       el.innerHTML = `
         <div class="card-inner">
-          <div class="face back">?</div>
+          <div class="face back">CLICK</div>
           <div class="face front">
-            <div class="round">${c.round}</div>
+            <div class="round">Round ${idx+1} · ${c.round}</div>
             <div class="move">${c.move}</div>
-            <div class="rule">${c.rule}</div>
+            <div class="rule">規則：${c.rule}</div>
           </div>
         </div>
       `;
-      el.onclick = () => el.classList.toggle("flip");
+      el.addEventListener("click", () => el.classList.toggle("flip"));
       cardsBox.appendChild(el);
-    }
+    });
   }
 
-  function makePreview(){
-    const rules = shuffle(randomRules).slice(0,4);
-    const cards = fixedRounds.map((r,idx)=>({
-      round:r,
-      move:r,
-      rule:rules[idx] || randomRules[idx]
-    }));
-    preview = { ts: Date.now(), cards };
-    shareTitle.textContent = "BATTLE TRAINING";
-    shareTime.textContent = new Date(preview.ts).toLocaleString();
+  function getRatings(){
+    const v = (id) => Number($(id).value);
+    return {
+      music: v("r_music"),
+      texture: v("r_texture"),
+      speed: v("r_speed"),
+      move: v("r_move"),
+      overall: v("r_overall")
+    };
+  }
+
+  function bindRanges(){
+    const bind = (rid, sid) => {
+      const r = $(rid), s = $(sid);
+      const fn = () => s.textContent = String(r.value);
+      r.addEventListener("input", fn);
+      fn();
+    };
+    bind("r_music","s_music");
+    bind("r_texture","s_texture");
+    bind("r_speed","s_speed");
+    bind("r_move","s_move");
+    bind("r_overall","s_overall");
+  }
+  bindRanges();
+
+  async function makePreview(){
+    if(!currentUser?.email) return;
+
+    const email = currentUser.email.toLowerCase();
+    const lastSig = await getLastSig(email);
+
+    let tries = 0;
+    let cards = null;
+    let sig = "";
+
+    while(tries < 12){
+      tries++;
+
+      // 固定四輪，每輪抽 move + rule
+      const cardsTry = fixedRounds.map((round, i) => {
+        const move = shuffle(pool[round])[0];
+        const rule = shuffle(rules)[0];
+        return { round, move, rule };
+      });
+
+      sig = signature(cardsTry);
+      if(sig !== lastSig){
+        cards = cardsTry;
+        break;
+      }
+    }
+
+    if(!cards){
+      // 真的很衰才會到這裡（幾乎不會）
+      cards = fixedRounds.map((round) => ({
+        round,
+        move: shuffle(pool[round])[0],
+        rule: shuffle(rules)[0]
+      }));
+      sig = signature(cards);
+    }
+
+    const ts = Date.now();
+    preview = { ts, cards, sig };
+
+    shareTitle.textContent = `BATTLE TRAINING · ${currentUser.email}`;
+    shareTime.textContent = `預覽時間：${nowText(ts)}`;
+
     renderCards(cards);
+
     btnReroll.disabled = false;
+    btnConfirm.disabled = false;
+    btnShot.disabled = false;
+  }
+
+  // =========================
+  // 10) 存雲端（確認紀錄）
+  // =========================
+  async function confirmRecord(){
+    if(!currentUser?.email || !preview) return;
+
+    btnConfirm.disabled = true;
+
+    const email = currentUser.email.toLowerCase();
+    const ts = Date.now();
+    const ratings = getRatings();
+
+    const docData = {
+      ts,
+      email,
+      cards: preview.cards,
+      sig: preview.sig,
+      ratings
+    };
+
+    await addDoc(recordsItemsCol(email), docData);
+    await setLastSig(email, preview.sig);
+
+    shareTime.textContent = `✅ 已確認：${nowText(ts)}`;
+
+    // 更新我的歷史/圖表
+    await loadMyHistory();
+
     btnConfirm.disabled = false;
   }
 
-  // ===== 雲端存檔（每人 records/{email}/items ）=====
-  function getRatingPayload(){
-    const obj = {};
-    for(const [k] of ratings){
-      obj[k] = Number(document.getElementById("r_"+k).value || 3);
+  // =========================
+  // 11) 讀取歷史 + 畫圖
+  // =========================
+  function renderHistory(listEl, items){
+    listEl.innerHTML = "";
+    if(items.length === 0){
+      const div = document.createElement("div");
+      div.className = "pill";
+      div.innerHTML = `<div class="muted">尚無紀錄</div>`;
+      listEl.appendChild(div);
+      return;
     }
-    return obj;
+
+    items.forEach(it => {
+      const div = document.createElement("div");
+      div.className = "pill";
+      const r = it.ratings || {};
+      div.innerHTML = `
+        <b>${new Date(it.ts).toLocaleString()}</b>
+        <div class="muted">整體：${r.overall ?? "-"}｜音樂：${r.music ?? "-"}｜質地：${r.texture ?? "-"}｜速度差：${r.speed ?? "-"}｜保持移動：${r.move ?? "-"}</div>
+      `;
+      listEl.appendChild(div);
+    });
   }
 
-  async function saveRecord(email){
-    if(!preview) return;
-    const payload = {
-      ts: preview.ts,
-      cards: preview.cards,
-      ratings: getRatingPayload()
-    };
-    const colRef = collection(db, RECORDS_ROOT, email, "items");
-    await addDoc(colRef, payload);
+  function avg(items, key){
+    if(items.length === 0) return 0;
+    const s = items.reduce((acc, it) => acc + Number(it.ratings?.[key] || 0), 0);
+    return s / items.length;
   }
 
-  // ===== Screenshot =====
-  btnShot.onclick = async () => {
-    try{
-      const area = document.getElementById("shareArea");
-      const canvas = await html2canvas(area, { backgroundColor: null, scale: 2 });
-      const a = document.createElement("a");
-      a.download = "battle_training.png";
-      a.href = canvas.toDataURL("image/png");
-      a.click();
-    }catch(e){
-      showDebug("截圖失敗：" + (e?.message || e));
-    }
-  };
+  function drawCharts(lineCanvas, barCanvas, items, holder){
+    const labels = items.map(it => new Date(it.ts).toLocaleDateString());
+    const overall = items.map(it => Number(it.ratings?.overall || 0));
 
-  btnStart.onclick = () => makePreview();
-  btnReroll.onclick = () => makePreview();
+    const barLabels = ["音樂性","質地","速度差","保持移動","整體"];
+    const barData = [
+      avg(items,"music"),
+      avg(items,"texture"),
+      avg(items,"speed"),
+      avg(items,"move"),
+      avg(items,"overall")
+    ];
 
-  btnConfirm.onclick = async () => {
-    try{
-      const u = auth.currentUser;
-      if(!u) return;
-      await saveRecord(u.email);
-      gateMsg.textContent = "";
-      showDebug("✅ 已存檔：" + new Date(preview.ts).toLocaleString());
-      btnConfirm.disabled = true; // 避免重複送
-    }catch(e){
-      showDebug("存檔失敗：" + (e?.message || e));
-    }
-  };
+    // 清掉舊的 chart
+    if(holder.line) holder.line.destroy();
+    if(holder.bar) holder.bar.destroy();
 
-  // ===== Login / Logout =====
-  btnLogin.onclick = async () => {
-    showDebug("");
-    try{
-      if(isIOSSafari()){
-        await signInWithRedirect(auth, provider);
-      }else{
-        await signInWithPopup(auth, provider);
+    holder.line = new Chart(lineCanvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{ label:"整體分", data: overall }]
+      },
+      options: {
+        responsive:true,
+        scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } }
       }
-    }catch(e){
-      showDebug("登入錯誤：" + (e?.message || e));
-    }
-  };
+    });
 
-  btnLogout.onclick = async () => {
-    try{
-      await signOut(auth);
-      uiLoggedOut();
-      showDebug("已登出");
-    }catch(e){
-      showDebug("登出錯誤：" + (e?.message || e));
-    }
-  };
-
-  // ===== 最重要：不要用 top-level await（iOS 會炸）=====
-  async function main(){
-    uiLoggedOut();
-    showDebug("初始化中…");
-
-    try{
-      await setPersistence(auth, browserLocalPersistence);
-    }catch(e){
-      // persistence 失敗也不致命，但要顯示
-      showDebug("setPersistence 失敗（仍會嘗試登入）："+(e?.message||e));
-    }
-
-    // redirect 回來一定跑（抓回結果/錯誤）
-    try{
-      await getRedirectResult(auth);
-    }catch(e){
-      showDebug("redirectResult：" + (e?.message || e));
-    }
-
-    // 監聽登入狀態（真正關鍵）
-    onAuthStateChanged(auth, async (user) => {
-      if(!user){
-        uiLoggedOut();
-        showDebug("");
-        return;
-      }
-      loginState.textContent = "已登入：" + (user.email || "(no email)");
-      try{
-        await checkGateAndShow(user.email);
-        showDebug("");
-      }catch(e){
-        showDebug("名單檢查失敗：" + (e?.message || e));
+    holder.bar = new Chart(barCanvas, {
+      type: "bar",
+      data: {
+        labels: barLabels,
+        datasets: [{ label:"平均分", data: barData }]
+      },
+      options: {
+        responsive:true,
+        scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } }
       }
     });
   }
 
-  main();
+  async function loadHistory(email){
+    const q = query(recordsItemsCol(email), orderBy("ts","desc"), limit(10));
+    const snap = await getDocs(q);
+    const items = [];
+    snap.forEach(d => items.push(d.data()));
+    return items;
+  }
+
+  async function loadMyHistory(){
+    if(!currentUser?.email) return;
+    const email = currentUser.email.toLowerCase();
+    const items = await loadHistory(email);
+
+    renderHistory(myHistory, items);
+
+    // chart 用時間順（舊→新）比較好看
+    const ordered = [...items].reverse();
+    drawCharts(chartLineEl, chartBarEl, ordered, { get line(){return chartLine}, set line(v){chartLine=v}, get bar(){return chartBar}, set bar(v){chartBar=v} });
+  }
+
+  // =========================
+  // 12) 教練後台：名單管理 + 學生資料
+  // =========================
+  async function refreshStudentSelect(){
+    if(!isCoach) return;
+    studentSelect.innerHTML = `<option value="">（選擇學生）</option>`;
+
+    const snap = await getDocs(collection(db, ALLOWLIST_COL));
+    const emails = [];
+    snap.forEach(d => {
+      const id = (d.id || "").toLowerCase();
+      if(id) emails.push(id);
+    });
+
+    emails.sort();
+    emails.forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e;
+      opt.textContent = e;
+      studentSelect.appendChild(opt);
+    });
+  }
+
+  async function adminAdd(){
+    if(!isCoach) return;
+    const email = (addEmail.value || "").trim().toLowerCase();
+    if(!email.includes("@")){
+      adminMsg.textContent = "請輸入正確 email";
+      return;
+    }
+    await setDoc(allowDoc(email), { role:"student", updatedAt: Date.now() }, { merge:true });
+    adminMsg.textContent = `✅ 已新增：${email}`;
+    addEmail.value = "";
+    await refreshStudentSelect();
+  }
+
+  async function adminRemove(){
+    if(!isCoach) return;
+    const email = (removeEmail.value || "").trim().toLowerCase();
+    if(!email.includes("@")){
+      adminMsg.textContent = "請輸入正確 email";
+      return;
+    }
+    await deleteDoc(allowDoc(email));
+    adminMsg.textContent = `🗑️ 已移除：${email}`;
+    removeEmail.value = "";
+    await refreshStudentSelect();
+  }
+
+  async function loadStudent(){
+    if(!isCoach) return;
+    const email = (studentSelect.value || "").trim().toLowerCase();
+    if(!email){
+      adminMsg.textContent = "請先選學生";
+      return;
+    }
+
+    const items = await loadHistory(email);
+    studentArea.style.display = "block";
+    studentTitle.textContent = email;
+    studentMeta.textContent = `最近 ${items.length} 筆（只包含確認紀錄）`;
+
+    renderHistory(studentHistory, items);
+
+    const ordered = [...items].reverse();
+    drawCharts(chartLineStuEl, chartBarStuEl, ordered, { get line(){return chartLineStu}, set line(v){chartLineStu=v}, get bar(){return chartBarStu}, set bar(v){chartBarStu=v} });
+  }
+
+  btnAdd.addEventListener("click", adminAdd);
+  btnRemove.addEventListener("click", adminRemove);
+  btnLoadStudent.addEventListener("click", loadStudent);
+
+  // =========================
+  // 13) 匯出圖片
+  // =========================
+  async function exportImage(){
+    const area = $("shareArea");
+    btnShot.disabled = true;
+
+    const canvas = await html2canvas(area, { backgroundColor: null, scale: 2 });
+    const a = document.createElement("a");
+    a.download = `battle_training_${Date.now()}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+
+    btnShot.disabled = false;
+  }
+  btnShot.addEventListener("click", exportImage);
+
+  // =========================
+  // 14) 事件：抽題/重抽/確認
+  // =========================
+  btnStart.addEventListener("click", async () => {
+    await makePreview();
+  });
+
+  btnReroll.addEventListener("click", async () => {
+    await makePreview();
+  });
+
+  btnConfirm.addEventListener("click", async () => {
+    await confirmRecord();
+  });
+
+  // =========================
+  // 15) Auth 狀態監聽（核心）
+  // =========================
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user || null;
+
+    // reset
+    preview = null;
+    cardsBox.innerHTML = "";
+    btnReroll.disabled = true;
+    btnConfirm.disabled = true;
+    btnShot.disabled = true;
+    shareTitle.textContent = "—";
+    shareTime.textContent = "—";
+    gateMsg.textContent = "";
+    roleState.textContent = "";
+
+    if(!currentUser){
+      isAllowed = false;
+      isCoach = false;
+      setUI();
+      return;
+    }
+
+    try{
+      await checkGate(currentUser);
+      setUI();
+
+      // 允許者：載入我的歷史
+      if(isAllowed){
+        await loadMyHistory();
+      }
+
+      // 教練：刷新學生清單
+      if(isCoach){
+        await refreshStudentSelect();
+      }
+    }catch(e){
+      debugMsg.textContent = e?.code ? `gate: ${e.code}` : "讀取權限/資料發生錯誤";
+      // 這裡通常是 rules 擋住
+      isAllowed = false;
+      isCoach = false;
+      setUI();
+    }
+  });
+
 </script>
 </body>
 </html>
