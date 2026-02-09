@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>BATTLE TRAINING</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body{margin:0;background:radial-gradient(circle at top,#3a0ca3,#000);font-family:Arial,sans-serif;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;}
+  .container{width:95%;max-width:720px;text-align:center;}
+  h1{letter-spacing:4px;color:#00f5ff;text-shadow:0 0 12px #00f5ff;margin:8px 0 6px;}
+  .sub{font-size:14px;color:#cfcfcf;margin-bottom:10px;line-height:1.5;}
+  .panel{background:rgba(0,0,0,.55);border:1px solid rgba(0,245,255,.35);box-shadow:0 0 18px rgba(0,245,255,.18);border-radius:16px;padding:14px;margin:10px 0 14px;text-align:left;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  input{flex:1;min-width:180px;padding:12px 12px;border-radius:12px;border:1px solid rgba(0,245,255,.35);background:rgba(10,10,10,.7);color:#fff;outline:none;}
+  .btn{width:100%;padding:16px;margin:10px 0;font-size:20px;font-weight:900;border-radius:16px;border:none;background:linear-gradient(135deg,#ff00c8,#00f5ff);color:#000;cursor:pointer;box-shadow:0 0 15px rgba(255,0,200,.35);}
+  .btn.small{width:auto;padding:12px 14px;font-size:15px;font-weight:800;border-radius:12px;margin:0;}
+  .btn.ghost{background:linear-gradient(135deg,rgba(255,0,200,.18),rgba(0,245,255,.18));color:#fff;border:1px solid rgba(255,255,255,.18);box-shadow:none;}
+  .btn.secondary{background:linear-gradient(135deg,#00f5ff,#ffe600);color:#000;box-shadow:0 0 14px rgba(0,245,255,.25);}
+  .btn.danger{background:linear-gradient(135deg,#ff3b3b,#ff00c8);color:#000;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+  .status{font-size:14px;color:#ffe600;margin-top:8px;}
+  .hint{font-size:13px;color:#bfbfbf;margin-top:8px;line-height:1.4;}
+  .divider{height:1px;background:rgba(255,255,255,.10);margin:10px 0;}
+
+  /* export area */
+  .shareWrap{
+    margin-top:12px;
+    padding:14px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.14);
+    background:linear-gradient(135deg, rgba(255,0,200,.12), rgba(0,245,255,.10));
+    text-align:left;
+  }
+  .shareTitle{
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .tag{
+    display:inline-block;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid rgba(0,245,255,.35);
+    color:#00f5ff;
+    font-weight:900;
+    font-size:12px;
+    letter-spacing:1px;
+  }
+
+  /* cards */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:12px;}
+  .card{perspective:1000px;}
+  .card-inner{position:relative;width:100%;padding-top:140%;transition:transform .8s;transform-style:preserve-3d;}
+  .card.flip .card-inner{transform:rotateY(180deg);}
+  .face{position:absolute;inset:0;border-radius:18px;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:14px;font-weight:900;}
+  .back{background:linear-gradient(135deg,#111,#333);border:2px solid #00f5ff;font-size:22px;letter-spacing:2px;}
+  .front{background:linear-gradient(135deg,#ff00c8,#3a0ca3);transform:rotateY(180deg);text-align:center;}
+  .round{font-size:14px;color:#ffe600;margin-bottom:6px;}
+  .move{font-size:20px;color:#00f5ff;margin-bottom:6px;}
+  .rule{font-size:16px;color:#fff;}
+
+  .pill{padding:10px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font-size:14px;line-height:1.35;}
+  .pill b{color:#00f5ff;}
+  .muted{color:#bfbfbf;}
+
+  details{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.04);border-radius:14px;padding:10px 10px;}
+  summary{cursor:pointer;font-weight:900;color:#00f5ff;outline:none;}
+  .histItem{margin-top:10px;display:grid;gap:8px;}
+  .histHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;}
+
+  /* ratings */
+  .ratingGrid{display:grid;gap:10px;margin-top:10px;}
+  .ratingRow{
+    display:grid;
+    grid-template-columns: 120px 1fr 44px;
+    gap:10px;
+    align-items:center;
+  }
+  .ratingRow label{font-weight:900;color:#00f5ff;font-size:13px;}
+  .ratingRow input[type="range"]{width:100%;}
+  .scoreBox{
+    text-align:center;
+    padding:8px 6px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.25);
+    font-weight:900;
+  }
+  .ratingNote{font-size:12px;color:#bfbfbf;line-height:1.4;margin-top:6px;}
+</style>
+
+<!-- 截圖用：html2canvas -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+
+<body>
+<div class="container">
+  <h1>BATTLE TRAINING</h1>
+  <div class="sub">
+    流程：① 登入暱稱 → ② 抽題預覽 → ③ 填評分 → ④ 確認紀錄（才寫入歷史）<br>
+    規則：抽題會避開「你上一筆確認」的整組內容（不重複）。
+  </div>
+
+  <!-- Login + History -->
+  <div class="panel">
+    <div class="row">
+      <input id="username" placeholder="輸入暱稱（例：Shadow）" maxlength="24" />
+      <button class="btn small" onclick="login()">登入</button>
+      <button class="btn small ghost" onclick="logout()">登出</button>
+    </div>
+
+    <div class="status" id="statusText">尚未登入</div>
+    <div class="divider"></div>
+
+    <!-- Last Confirmed Quick View -->
+    <div id="lastBox" style="display:none;">
+      <div class="pill"><span class="muted">上一筆確認時間：</span><b id="lastTime"></b></div>
+      <div class="pill" id="lastSummary"></div>
+      <div class="pill" id="lastRatingSummary" style="margin-top:8px;"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn small ghost" onclick="clearLast()">清除「上一筆」(也會清空歷史第一筆)</button>
+      </div>
+      <div class="divider"></div>
+    </div>
+
+    <!-- History List -->
+    <details id="historyDetails" style="display:none;">
+      <summary>📚 歷史列表（最近 10 次）</summary>
+      <div class="hint">只會記錄你按「確認紀錄」的內容（含評分）。</div>
+
+      <div class="histHeader">
+        <button class="btn small danger" onclick="clearAllHistory()">清空全部歷史</button>
+        <div class="muted" id="historyCountText"></div>
+      </div>
+
+      <div id="historyList" class="histItem"></div>
+    </details>
+
+    <div class="divider"></div>
+
+    <div class="hint" id="previewHint">
+      目前沒有「預覽中的題目」。按下「訓練開始」先抽題，填評分後按「確認紀錄」才會存入歷史。
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="row" style="justify-content:center;">
+    <button class="btn" style="max-width:700px;" onclick="startTraining()">🚀 訓練開始（抽題預覽）</button>
+  </div>
+  <div class="row" style="justify-content:center;">
+    <button class="btn ghost" style="max-width:700px;" id="rerollBtn" onclick="reroll()" disabled>🎲 重抽（不寫入歷史）</button>
+  </div>
+
+  <!-- Share/export area (will be captured) -->
+  <div class="shareWrap" id="shareArea">
+    <div class="shareTitle">
+      <div class="tag" id="shareTag">NOT LOGGED IN</div>
+      <div class="muted" id="shareTime">—</div>
+    </div>
+
+    <!-- Cards -->
+    <div class="cards" id="cards"></div>
+
+    <!-- Ratings -->
+    <div class="divider"></div>
+    <div style="font-weight:900; color:#ffe600; margin-bottom:6px;">訓練評分（1~5）</div>
+    <div class="ratingGrid" id="ratingGrid">
+      <div class="ratingRow">
+        <label>音樂性</label>
+        <input type="range" min="1" max="5" value="3" id="r_music" oninput="syncScore('music')">
+        <div class="scoreBox" id="s_music">3</div>
+      </div>
+      <div class="ratingRow">
+        <label>質地</label>
+        <input type="range" min="1" max="5" value="3" id="r_texture" oninput="syncScore('texture')">
+        <div class="scoreBox" id="s_texture">3</div>
+      </div>
+      <div class="ratingRow">
+        <label>速度差</label>
+        <input type="range" min="1" max="5" value="3" id="r_speed" oninput="syncScore('speed')">
+        <div class="scoreBox" id="s_speed">3</div>
+      </div>
+      <div class="ratingRow">
+        <label>保持移動</label>
+        <input type="range" min="1" max="5" value="3" id="r_move" oninput="syncScore('move')">
+        <div class="scoreBox" id="s_move">3</div>
+      </div>
+      <div class="ratingRow">
+        <label>整體</label>
+        <input type="range" min="1" max="5" value="3" id="r_overall" oninput="syncScore('overall')">
+        <div class="scoreBox" id="s_overall">3</div>
+      </div>
+      <div class="ratingNote">建議：抽題後先練完再評分；想當場記錄也可以先打感覺分。</div>
+    </div>
+
+    <div class="row" style="justify-content:center; margin-top:10px;">
+      <button class="btn secondary" style="max-width:700px;" id="confirmBtn" onclick="confirmRecord()" disabled>✅ 確認紀錄（寫入歷史＋評分）</button>
+    </div>
+    <div class="row" style="justify-content:center;">
+      <button class="btn" style="max-width:700px;" id="shotBtn" onclick="exportShot()" disabled>📸 一鍵匯出截圖分享</button>
+    </div>
+    <div class="hint">截圖會把「卡片＋評分」一起變成一張分享圖。</div>
+  </div>
+</div>
+
+<script>
+  const fixed = ["Top Rock","Go Down","Footwork","Set"];
+  const random = ["音樂表現","質地呈現","速度差呈現","保持移動"];
+
+  function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
+
+  // --- user + storage keys
+  function getUser(){ return localStorage.getItem("bt_current_user"); }
+  function keyLast(user){ return `bt_last_confirmed_${user}`; }
+  function keyPreview(user){ return `bt_preview_${user}`; }
+  function keyHistory(user){ return `bt_history_${user}`; }
+  const HISTORY_LIMIT = 10;
+
+  function login(){
+    const name = (document.getElementById("username").value || "").trim();
+    if(!name){ alert("請先輸入暱稱再登入"); return; }
+    localStorage.setItem("bt_current_user", name);
+    updateUI();
+  }
+  function logout(){
+    localStorage.removeItem("bt_current_user");
+    updateUI();
+  }
+
+  function readJSON(key){
+    const raw = localStorage.getItem(key);
+    if(!raw) return null;
+    try { return JSON.parse(raw); } catch(e){ return null; }
+  }
+  function writeJSON(key, obj){ localStorage.setItem(key, JSON.stringify(obj)); }
+
+  function fmtTime(ts){
+    const d = new Date(ts);
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+    const h=String(d.getHours()).padStart(2,'0'), m
