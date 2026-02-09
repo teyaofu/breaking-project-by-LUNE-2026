@@ -194,7 +194,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import {
     getAuth, GoogleAuthProvider,
-    signInWithPopup, signInWithRedirect, getRedirectResult,
+    signInWithRedirect, getRedirectResult,
     signOut, onAuthStateChanged, setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
@@ -222,6 +222,33 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  // 🔥 確保 iOS Safari 也能記住登入狀態
+setPersistence(auth, browserLocalPersistence)
+  .then(() => dbg("persistence=browserLocal OK"))
+  .catch(e => dbg("persistence ERR=" + e.code));
+
+// Google Provider
+const provider = new GoogleAuthProvider();
+
+// 登入按鈕 → 一律使用 redirect（Safari 最穩）
+btnLogin.onclick = () => {
+  dbg("LOGIN CLICK → redirect");
+  signInWithRedirect(auth, provider);
+};
+
+// 處理 redirect 回來的結果
+(async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    dbg("Redirect result user=" + (result?.user?.email || "null"));
+  } catch (e) {
+    dbg("Redirect ERR=" + (e.code || e.message));
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    dbg("AUTH STATE=" + (user ? user.email : "null"));
+  });
+})();
 // ✅ 接收 iOS Safari 的 Google Redirect 登入結果
 getRedirectResult(auth)
   .then(result => {
