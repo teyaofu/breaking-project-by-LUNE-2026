@@ -274,10 +274,18 @@ window.addEventListener("DOMContentLoaded", () => {
     .then(() => dbg("persistence=browserLocal OK"))
     .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
 
-  btnLogin.onclick = () => {
-    dbg("LOGIN CLICK → redirect");
-    signInWithRedirect(auth, provider);
-  };
+  btnLogin.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  dbg("LOGIN CLICK → redirect (start)");
+  try {
+    await signInWithRedirect(auth, provider);
+    dbg("LOGIN redirect fired (should navigate now)");
+  } catch (err) {
+    dbg("LOGIN ERROR: " + (err?.code || err?.message || err));
+  }
+});
 
   btnLogout.onclick = () => {
     dbg("LOGOUT CLICK");
