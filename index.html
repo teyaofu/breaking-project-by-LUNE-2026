@@ -202,23 +202,13 @@
     collection, addDoc, getDocs, query, orderBy, limit
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-  // =========================
-  // 0) 你要注意的「兩個集合名稱」
-  // =========================
-  // 允許名單集合：每個 docId = email
-  // 你原本畫面叫「霹靂舞」，我就沿用（不要改，免得你再找不到）
+  // 允許名單（docId = email）
   const ALLOWLIST_COL = "霹靂舞";
-
-  // 教練名單集合：每個 docId = email，欄位 role: "coach"
-  // 你可以改成你想要的名字，但要跟 Firestore 一致
+  // 教練名單（docId = email, role:"coach"）
   const COACH_COL = "coaches";
-
-  // 紀錄：records/{email}/items/{autoId} + records/{email}/meta (存 lastSig)
+  // records/{email}/items/{autoId} + records/{email}/meta/state (lastSig)
   const RECORDS_ROOT = "records";
 
-  // =========================
-  // 1) Firebase Config（你的）
-  // =========================
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
     authDomain: "breaking-814bf.firebaseapp.com",
@@ -233,9 +223,7 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // =========================
-  // 2) DOM
-  // =========================
+  // DOM
   const $ = (id) => document.getElementById(id);
 
   const btnLogin   = $("btnLogin");
@@ -279,40 +267,44 @@
   const chartBarStuEl = $("chartBarStu");
 
   // =========================
-  // 3) Auth：iOS Safari 用 Redirect 最穩
+  // Auth（修正：只要 iOS 一律用 Redirect）
   // =========================
   const provider = new GoogleAuthProvider();
   const ua = navigator.userAgent || "";
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
 
   await setPersistence(auth, browserLocalPersistence);
 
-  // 接 redirect 回來的結果（必做）
-  try { await getRedirectResult(auth); }
-  catch (e) {
-    // 沒有結果也可能會進來；顯示錯誤碼才好查
+  // redirect 回來一定要接（避免 iOS 回來像沒登入）
+  try {
+    const rr = await getRedirectResult(auth);
+    if (rr?.user?.email) debugMsg.textContent = `redirect ok: ${rr.user.email}`;
+  } catch (e) {
     debugMsg.textContent = e?.code ? `redirect: ${e.code}` : "";
   }
 
   async function doLogin(){
     debugMsg.textContent = "";
-    // iOS Safari：直接 redirect
-    if (isIOS && isSafari){
+    gateMsg.textContent = "";
+
+    // ✅ iOS 全部 redirect（Safari/Chrome/內建瀏覽器都穩）
+    if (isIOS){
       await signInWithRedirect(auth, provider);
       return;
     }
-    // 其他：先 popup，失敗 fallback redirect
+
+    // 非 iOS：先 popup，失敗就 redirect
     try{
       await signInWithPopup(auth, provider);
     }catch(e){
-      debugMsg.textContent = e?.code ? `popup: ${e.code} → 改用 redirect` : "popup 失敗 → 改用 redirect";
+      debugMsg.textContent = e?.code ? `popup: ${e.code} → redirect` : "popup 失敗 → redirect";
       await signInWithRedirect(auth, provider);
     }
   }
 
   async function doLogout(){
     debugMsg.textContent = "";
+    gateMsg.textContent = "";
     await signOut(auth);
   }
 
@@ -320,7 +312,7 @@
   btnLogout.addEventListener("click", doLogout);
 
   // =========================
-  // 4) 抽題資料
+  // 抽題資料
   // =========================
   const fixedRounds = ["Top Rock","Go Down","Footwork","Set"];
   const pool = {
@@ -345,36 +337,22 @@
     return d.toLocaleString();
   }
 
-  // =========================
-  // 5) 狀態
-  // =========================
+  // 狀態
   let currentUser = null;
   let isAllowed = false;
   let isCoach = false;
 
-  let preview = null; // {ts, cards:[{round,move,rule}], sig}
+  let preview = null;
   let chartLine = null, chartBar = null;
   let chartLineStu = null, chartBarStu = null;
 
-  // =========================
-  // 6) Firestore 路徑 helpers
-  // =========================
-  function allowDoc(email){
-    return doc(db, ALLOWLIST_COL, email);
-  }
-  function coachDoc(email){
-    return doc(db, COACH_COL, email);
-  }
-  function recordsMetaDoc(email){
-    return doc(db, RECORDS_ROOT, email, "meta", "state");
-  }
-  function recordsItemsCol(email){
-    return collection(db, RECORDS_ROOT, email, "items");
-  }
+  // Firestore helpers
+  function allowDoc(email){ return doc(db, ALLOWLIST_COL, email); }
+  function coachDoc(email){ return doc(db, COACH_COL, email); }
+  function recordsMetaDoc(email){ return doc(db, RECORDS_ROOT, email, "meta", "state"); }
+  function recordsItemsCol(email){ return collection(db, RECORDS_ROOT, email, "items"); }
 
-  // =========================
-  // 7) Gate：檢查允許名單 + 教練角色
-  // =========================
+  // Gate：允許名單 + 教練
   async function checkGate(user){
     gateMsg.textContent = "";
     roleState.textContent = "";
@@ -387,20 +365,15 @@
 
     const email = user.email.toLowerCase();
 
-    // 允許名單
     const aSnap = await getDoc(allowDoc(email));
     isAllowed = aSnap.exists();
 
-    // 教練名單（可選）
     const cSnap = await getDoc(coachDoc(email));
     isCoach = cSnap.exists() && (cSnap.data()?.role === "coach");
 
     if(isCoach) roleState.textContent = "（教練）";
   }
 
-  // =========================
-  // 8) UI 控制
-  // =========================
   function setUI(){
     if(!currentUser){
       loginState.textContent = "尚未登入";
@@ -423,17 +396,11 @@
     appPanel.style.display = "block";
     userTip.textContent = `使用者：${currentUser.email}`;
 
-    // 教練才顯示後台
     adminPanel.style.display = isCoach ? "block" : "none";
   }
 
-  // =========================
-  // 9) 產生預覽（避開上一筆確認）
-  // =========================
-  function signature(cards){
-    // 用 round|move|rule 組合成唯一簽名
-    return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||");
-  }
+  // 避開上一筆
+  function signature(cards){ return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||"); }
 
   async function getLastSig(email){
     const snap = await getDoc(recordsMetaDoc(email));
@@ -502,9 +469,7 @@
 
     while(tries < 12){
       tries++;
-
-      // 固定四輪，每輪抽 move + rule
-      const cardsTry = fixedRounds.map((round, i) => {
+      const cardsTry = fixedRounds.map((round) => {
         const move = shuffle(pool[round])[0];
         const rule = shuffle(rules)[0];
         return { round, move, rule };
@@ -518,7 +483,6 @@
     }
 
     if(!cards){
-      // 真的很衰才會到這裡（幾乎不會）
       cards = fixedRounds.map((round) => ({
         round,
         move: shuffle(pool[round])[0],
@@ -540,9 +504,6 @@
     btnShot.disabled = false;
   }
 
-  // =========================
-  // 10) 存雲端（確認紀錄）
-  // =========================
   async function confirmRecord(){
     if(!currentUser?.email || !preview) return;
 
@@ -552,28 +513,17 @@
     const ts = Date.now();
     const ratings = getRatings();
 
-    const docData = {
-      ts,
-      email,
-      cards: preview.cards,
-      sig: preview.sig,
-      ratings
-    };
+    const docData = { ts, email, cards: preview.cards, sig: preview.sig, ratings };
 
     await addDoc(recordsItemsCol(email), docData);
     await setLastSig(email, preview.sig);
 
     shareTime.textContent = `✅ 已確認：${nowText(ts)}`;
-
-    // 更新我的歷史/圖表
     await loadMyHistory();
 
     btnConfirm.disabled = false;
   }
 
-  // =========================
-  // 11) 讀取歷史 + 畫圖
-  // =========================
   function renderHistory(listEl, items){
     listEl.innerHTML = "";
     if(items.length === 0){
@@ -607,40 +557,21 @@
     const overall = items.map(it => Number(it.ratings?.overall || 0));
 
     const barLabels = ["音樂性","質地","速度差","保持移動","整體"];
-    const barData = [
-      avg(items,"music"),
-      avg(items,"texture"),
-      avg(items,"speed"),
-      avg(items,"move"),
-      avg(items,"overall")
-    ];
+    const barData = [avg(items,"music"), avg(items,"texture"), avg(items,"speed"), avg(items,"move"), avg(items,"overall")];
 
-    // 清掉舊的 chart
     if(holder.line) holder.line.destroy();
     if(holder.bar) holder.bar.destroy();
 
     holder.line = new Chart(lineCanvas, {
       type: "line",
-      data: {
-        labels,
-        datasets: [{ label:"整體分", data: overall }]
-      },
-      options: {
-        responsive:true,
-        scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } }
-      }
+      data: { labels, datasets: [{ label:"整體分", data: overall }] },
+      options: { responsive:true, scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } } }
     });
 
     holder.bar = new Chart(barCanvas, {
       type: "bar",
-      data: {
-        labels: barLabels,
-        datasets: [{ label:"平均分", data: barData }]
-      },
-      options: {
-        responsive:true,
-        scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } }
-      }
+      data: { labels: barLabels, datasets: [{ label:"平均分", data: barData }] },
+      options: { responsive:true, scales: { y: { min:0, max:5, ticks:{ stepSize:1 } } } }
     });
   }
 
@@ -659,14 +590,13 @@
 
     renderHistory(myHistory, items);
 
-    // chart 用時間順（舊→新）比較好看
     const ordered = [...items].reverse();
-    drawCharts(chartLineEl, chartBarEl, ordered, { get line(){return chartLine}, set line(v){chartLine=v}, get bar(){return chartBar}, set bar(v){chartBar=v} });
+    drawCharts(chartLineEl, chartBarEl, ordered, {
+      get line(){return chartLine}, set line(v){chartLine=v},
+      get bar(){return chartBar}, set bar(v){chartBar=v}
+    });
   }
 
-  // =========================
-  // 12) 教練後台：名單管理 + 學生資料
-  // =========================
   async function refreshStudentSelect(){
     if(!isCoach) return;
     studentSelect.innerHTML = `<option value="">（選擇學生）</option>`;
@@ -729,16 +659,16 @@
     renderHistory(studentHistory, items);
 
     const ordered = [...items].reverse();
-    drawCharts(chartLineStuEl, chartBarStuEl, ordered, { get line(){return chartLineStu}, set line(v){chartLineStu=v}, get bar(){return chartBarStu}, set bar(v){chartBarStu=v} });
+    drawCharts(chartLineStuEl, chartBarStuEl, ordered, {
+      get line(){return chartLineStu}, set line(v){chartLineStu=v},
+      get bar(){return chartBarStu}, set bar(v){chartBarStu=v}
+    });
   }
 
   btnAdd.addEventListener("click", adminAdd);
   btnRemove.addEventListener("click", adminRemove);
   btnLoadStudent.addEventListener("click", loadStudent);
 
-  // =========================
-  // 13) 匯出圖片
-  // =========================
   async function exportImage(){
     const area = $("shareArea");
     btnShot.disabled = true;
@@ -753,28 +683,16 @@
   }
   btnShot.addEventListener("click", exportImage);
 
-  // =========================
-  // 14) 事件：抽題/重抽/確認
-  // =========================
-  btnStart.addEventListener("click", async () => {
-    await makePreview();
-  });
-
-  btnReroll.addEventListener("click", async () => {
-    await makePreview();
-  });
-
-  btnConfirm.addEventListener("click", async () => {
-    await confirmRecord();
-  });
+  btnStart.addEventListener("click", async () => { await makePreview(); });
+  btnReroll.addEventListener("click", async () => { await makePreview(); });
+  btnConfirm.addEventListener("click", async () => { await confirmRecord(); });
 
   // =========================
-  // 15) Auth 狀態監聽（核心）
+  // Auth state（核心）
   // =========================
   onAuthStateChanged(auth, async (user) => {
     currentUser = user || null;
 
-    // reset
     preview = null;
     cardsBox.innerHTML = "";
     btnReroll.disabled = true;
@@ -792,22 +710,19 @@
       return;
     }
 
+    // 先顯示已登入（避免你覺得沒登入）
+    loginState.textContent = `已登入：${currentUser.email || ""}`;
+
     try{
       await checkGate(currentUser);
       setUI();
 
-      // 允許者：載入我的歷史
-      if(isAllowed){
-        await loadMyHistory();
-      }
-
-      // 教練：刷新學生清單
+      if(isAllowed) await loadMyHistory();
       if(isCoach){
         await refreshStudentSelect();
       }
     }catch(e){
       debugMsg.textContent = e?.code ? `gate: ${e.code}` : "讀取權限/資料發生錯誤";
-      // 這裡通常是 rules 擋住
       isAllowed = false;
       isCoach = false;
       setUI();
