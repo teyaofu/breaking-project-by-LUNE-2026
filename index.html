@@ -222,7 +222,36 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+// ✅ 接收 iOS Safari 的 Google Redirect 登入結果
+getRedirectResult(auth)
+  .then(result => {
+    if (result?.user) {
+      dbg("Redirect login SUCCESS: " + result.user.email);
+    } else {
+      dbg("Redirect result: no user");
+    }
+  })
+  .catch(err => {
+    dbg("Redirect ERROR: " + err.message);
+  });
+  // 🔥 監聽登入狀態（Safari 轉跳回來就靠這個）
+onAuthStateChanged(auth, user => {
+  if (user) {
+    dbg("AUTH STATE: logged in = " + user.email);
 
+    loginState.textContent = "已登入：" + user.email;
+    btnLogin.style.display = "none";
+    btnLogout.style.display = "inline-block";
+    appPanel.style.display = "block";
+  } else {
+    dbg("AUTH STATE: not logged in");
+
+    loginState.textContent = "尚未登入";
+    btnLogin.style.display = "inline-block";
+    btnLogout.style.display = "none";
+    appPanel.style.display = "none";
+  }
+});
   // DOM
   const $ = (id) => document.getElementById(id);
 
@@ -292,7 +321,12 @@ try{
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   await setPersistence(auth, browserLocalPersistence);
-
+try{
+  await setPersistence(auth, browserLocalPersistence);
+  dbg("persistence=browserLocal OK");
+}catch(e){
+  dbg(`persistence=ERR ${e?.code || e}`);
+}
   // redirect 回來一定要接（避免 iOS 回來像沒登入）
   try {
     const rr = await getRedirectResult(auth);
