@@ -193,16 +193,32 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import {
-getAuth, GoogleAuthProvider,
+    getAuth, GoogleAuthProvider,
     signInWithPopup, signInWithRedirect, getRedirectResult,
-    signOut, onAuthStateChanged, setPersistence, browserLocalPersistence,
+    signOut, onAuthStateChanged, setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, deleteDoc,
     collection, addDoc, getDocs, query, orderBy, limit
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-  // ===== Firebase Config (你的) =====
+  // =========================
+  // 0) 你要注意的「兩個集合名稱」
+  // =========================
+  // 允許名單集合：每個 docId = email
+  // 你原本畫面叫「霹靂舞」，我就沿用（不要改，免得你再找不到）
+  const ALLOWLIST_COL = "霹靂舞";
+
+  // 教練名單集合：每個 docId = email，欄位 role: "coach"
+  // 你可以改成你想要的名字，但要跟 Firestore 一致
+  const COACH_COL = "coaches";
+
+  // 紀錄：records/{email}/items/{autoId} + records/{email}/meta (存 lastSig)
+  const RECORDS_ROOT = "records";
+
+  // =========================
+  // 1) Firebase Config（你的）
+  // =========================
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
     authDomain: "breaking-814bf.firebaseapp.com",
@@ -216,73 +232,5 @@ getAuth, GoogleAuthProvider,
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-// ===== Auth (Popup + Redirect, works on iOS Safari) =====
-await setPersistence(auth, browserLocalPersistence);
 
-const provider = new GoogleAuthProvider();
-
-// 自動找「Google 登入」與「登出」按鈕（不用知道 id）
-function findBtn(re){
-  return [...document.querySelectorAll('button, a, div')]
-    .find(el => el && el.textContent && re.test(el.textContent.trim()));
-}
-const btnLogin  = findBtn(/google.*登入|登入.*google/i);
-const btnLogout = findBtn(/登出|logout/i);
-
-// 找顯示狀態的地方（你畫面是「尚未登入」那塊）
-function findStatusEl(){
-  // 先找常見 id
-  const byId = document.querySelector('#authStatus') || document.querySelector('#status') || document.querySelector('#loginStatus');
-  if (byId) return byId;
-  // 再找包含「尚未登入」的元素
-  return [...document.querySelectorAll('div, p, span')]
-    .find(el => el.textContent && el.textContent.includes('尚未登入')) || null;
-}
-const statusEl = findStatusEl();
-
-async function doLogin(){
-  // 先試 popup（電腦/Android Chrome 多半OK）
-  try {
-    await signInWithPopup(auth, provider);
-    return;
-  } catch (e) {
-    // popup 被擋：手機 Safari 常見
-    console.warn('Popup failed, fallback to redirect:', e?.code || e);
-    await signInWithRedirect(auth, provider);
-  }
-}
-
-async function doLogout(){
-  await signOut(auth);
-}
-
-// 讓 redirect 登入能接回結果（一定要）
-getRedirectResult(auth).catch(e => {
-  // 沒有 redirect 結果時會走這裡，正常，不用理它
-  console.warn('getRedirectResult:', e?.code || e);
-});
-
-// 綁按鈕
-if (btnLogin)  btnLogin.addEventListener('click', doLogin);
-if (btnLogout) btnLogout.addEventListener('click', doLogout);
-
-// UI 狀態更新
-onAuthStateChanged(auth, (user) => {
-  const email = user?.email || '';
-  if (statusEl) {
-    statusEl.textContent = user ? `已登入：${email}` : '尚未登入';
-  }
-});
-  // ===== Training Logic =====
-  const fixed = ["Top Rock","Go Down","Footwork","Set"];
-  const random = ["音樂表現","質地呈現","速度差呈現","保持移動"];
-
-  let preview = null; // { cards, sig, ts }
-  let lineChart = null, barChart = null;
-  let lineChartStu = null, barChartStu = null;
-
-  const $ = (id)=>document.getElementById(id);
-
-  function shuffle(arr){ return arr.sort(()=>Math.random()-0.5); }
-  function signature(cards){ return cards.map(c => `${c.round}|${c.move}|${c.rule}`).join("||"); }
-  function fmtT
+  // ==
