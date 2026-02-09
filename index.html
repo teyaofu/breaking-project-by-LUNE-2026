@@ -222,45 +222,47 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  // 🔥 確保 iOS Safari 也能記住登入狀態
-setPersistence(auth, browserLocalPersistence)
-  .then(() => dbg("persistence=browserLocal OK"))
-  .catch(e => dbg("persistence ERR=" + e.code));
-
 // Google Provider
 const provider = new GoogleAuthProvider();
 
-// 登入按鈕 → 一律使用 redirect（Safari 最穩）
+// 登入按鈕 → Safari 用 redirect 最穩
 btnLogin.onclick = () => {
   dbg("LOGIN CLICK → redirect");
   signInWithRedirect(auth, provider);
 };
 
-// 處理 redirect 回來的結果
+// 登出
+btnLogout.onclick = () => {
+  signOut(auth);
+};
+
+// 🔐 iOS Safari 專用：確保登入狀態可被保存
 (async () => {
   try {
-    const result = await getRedirectResult(auth);
-    dbg("Redirect result user=" + (result?.user?.email || "null"));
+    await setPersistence(auth, browserLocalPersistence);
+    dbg("persistence=browserLocal OK");
   } catch (e) {
-    dbg("Redirect ERR=" + (e.code || e.message));
+    dbg("persistence ERR=" + (e?.code || e));
   }
 
-  onAuthStateChanged(auth, (user) => {
-    dbg("AUTH STATE=" + (user ? user.email : "null"));
-  });
-})();
-// ✅ 接收 iOS Safari 的 Google Redirect 登入結果
-getRedirectResult(auth)
-  .then(result => {
+  // 接收 Google Redirect 回來的登入結果
+  try {
+    const result = await getRedirectResult(auth);
     if (result?.user) {
-      dbg("Redirect login SUCCESS: " + result.user.email);
+      dbg("Redirect login SUCCESS: " + (result.user.email || "(no email)"));
     } else {
       dbg("Redirect result: no user");
     }
-  })
-  .catch(err => {
-    dbg("Redirect ERROR: " + err.message);
-  });
+  } catch (e) {
+    dbg("Redirect ERR=" + (e?.code || e?.message || e));
+  }
+
+  // 🔥 真正決定有沒有登入的是這裡
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
+
+      loginState.textContent = "已登入：" + user.e…
   // 🔥 監聽登入狀態（Safari 轉跳回來就靠這個）
 onAuthStateChanged(auth, user => {
   if (user) {
