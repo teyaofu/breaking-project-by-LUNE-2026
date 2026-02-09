@@ -233,10 +233,25 @@
   const roleState  = $("roleState");
   const gateMsg    = $("gateMsg");
   const debugMsg   = $("debugMsg");
-  debugMsg.textContent =
-  `BOOT OK
-url=${location.href}
-ua=${navigator.userAgent}`;
+ // ✅ Debug 基礎資訊
+function dbg(line){
+  debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
+}
+
+debugMsg.textContent = "";
+dbg("BOOT OK");
+dbg(`url=${location.href}`);
+dbg(`ua=${navigator.userAgent}`);
+dbg(`cookieEnabled=${navigator.cookieEnabled}`);
+
+// ✅ 測試 localStorage 能不能寫（iOS 有時會被限制）
+try{
+  localStorage.setItem("__t", String(Date.now()));
+  localStorage.removeItem("__t");
+  dbg("localStorage=OK");
+}catch(e){
+  dbg("localStorage=BLOCKED");
+}
   const appPanel   = $("appPanel");
   const adminPanel = $("adminPanel");
 
