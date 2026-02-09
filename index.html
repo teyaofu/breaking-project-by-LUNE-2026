@@ -220,91 +220,96 @@
   };
 
   // ===== Firebase init =====
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+window.addEventListener("DOMContentLoaded", () => {
 
-// ===== DOM（一定要在用 btnLogin 之前先抓）=====
-const $ = (id) => document.getElementById(id);
+  // ===== Firebase init =====
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-const btnLogin   = $("btnLogin");
-const btnLogout  = $("btnLogout");
+  // ===== DOM =====
+  const $ = (id) => document.getElementById(id);
 
-const loginState = $("loginState");
-const roleState  = $("roleState");
-const gateMsg    = $("gateMsg");
-const debugMsg   = $("debugMsg");
+  const btnLogin   = $("btnLogin");
+  const btnLogout  = $("btnLogout");
+  const loginState = $("loginState");
+  const roleState  = $("roleState");
+  const gateMsg    = $("gateMsg");
+  const debugMsg   = $("debugMsg");
+  const appPanel   = $("appPanel");
+  const adminPanel = $("adminPanel");
 
-const appPanel   = $("appPanel");
-const adminPanel = $("adminPanel");
-
-// Debug helper
-function dbg(line) {
-  debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
-}
-
-// ===== Basic debug info =====
-debugMsg.textContent = "";
-dbg("BOOT OK");
-dbg(`url=${location.href}`);
-dbg(`ua=${navigator.userAgent}`);
-dbg(`cookieEnabled=${navigator.cookieEnabled}`);
-
-// localStorage test（iOS 有時會被限制）
-try {
-  localStorage.setItem("__t", String(Date.now()));
-  localStorage.removeItem("__t");
-  dbg("localStorage=OK");
-} catch (e) {
-  dbg("localStorage=BLOCKED");
-}
-
-// ===== Auth wiring（放在 DOM 都抓完之後）=====
-const provider = new GoogleAuthProvider();
-
-// 先設定 persistence（iOS Safari 很重要）
-setPersistence(auth, browserLocalPersistence)
-  .then(() => dbg("persistence=browserLocal OK"))
-  .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
-
-// 登入：Safari 用 redirect
-btnLogin.onclick = () => {
-  dbg("LOGIN CLICK → redirect");
-  signInWithRedirect(auth, provider);
-};
-
-// 登出
-btnLogout.onclick = () => {
-  dbg("LOGOUT CLICK");
-  signOut(auth);
-};
-
-// 回到頁面：先吃 redirect 結果
-getRedirectResult(auth)
-  .then((result) => {
-    if (result?.user) {
-      dbg("Redirect login SUCCESS: " + (result.user.email || "(no email)"));
-    } else {
-      dbg("Redirect result: no user");
-    }
-  })
-  .catch((e) => dbg("Redirect ERR=" + (e?.code || e?.message || e)));
-
-// 用 onAuthStateChanged 決定 UI
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
-    loginState.textContent = "已登入：" + (user.email || "");
-    btnLogin.style.display = "none";
-    btnLogout.style.display = "inline-block";
-    appPanel.style.display = "block";
-  } else {
-    dbg("AUTH STATE: not logged in");
-    loginState.textContent = "尚未登入";
-    btnLogin.style.display = "inline-block";
-    btnLogout.style.display = "none";
-    appPanel.style.display = "none";
+  // 如果 DOM 沒抓到，直接顯示錯誤（這是你現在最可能的問題）
+  if (!btnLogin || !loginState || !debugMsg || !appPanel || !btnLogout) {
+    console.log("DOM missing:", { btnLogin, btnLogout, loginState, debugMsg, appPanel });
+    alert("JS 抓不到按鈕/畫面元件（btnLogin/loginState/debugMsg/appPanel/btnLogout），請確認 script 在頁面底部或使用我這版 DOMContentLoaded。");
+    return;
   }
+
+  // Debug helper
+  function dbg(line) {
+    debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
+  }
+
+  // ===== Basic debug info =====
+  debugMsg.textContent = "";
+  dbg("BOOT OK");
+  dbg(`url=${location.href}`);
+  dbg(`ua=${navigator.userAgent}`);
+  dbg(`cookieEnabled=${navigator.cookieEnabled}`);
+
+  // localStorage test
+  try {
+    localStorage.setItem("__t", String(Date.now()));
+    localStorage.removeItem("__t");
+    dbg("localStorage=OK");
+  } catch (e) {
+    dbg("localStorage=BLOCKED");
+  }
+
+  // ===== Auth wiring =====
+  const provider = new GoogleAuthProvider();
+
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => dbg("persistence=browserLocal OK"))
+    .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
+
+  btnLogin.onclick = () => {
+    dbg("LOGIN CLICK → redirect");
+    signInWithRedirect(auth, provider);
+  };
+
+  btnLogout.onclick = () => {
+    dbg("LOGOUT CLICK");
+    signOut(auth);
+  };
+
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result?.user) {
+        dbg("Redirect login SUCCESS: " + (result.user.email || "(no email)"));
+      } else {
+        dbg("Redirect result: no user");
+      }
+    })
+    .catch((e) => dbg("Redirect ERR=" + (e?.code || e?.message || e)));
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
+      loginState.textContent = "已登入：" + (user.email || "");
+      btnLogin.style.display = "none";
+      btnLogout.style.display = "inline-block";
+      appPanel.style.display = "block";
+    } else {
+      dbg("AUTH STATE: not logged in");
+      loginState.textContent = "尚未登入";
+      btnLogin.style.display = "inline-block";
+      btnLogout.style.display = "none";
+      appPanel.style.display = "none";
+    }
+  });
+
 });
  // ✅ Debug 基礎資訊
 function dbg(line){
