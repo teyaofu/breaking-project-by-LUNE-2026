@@ -220,10 +220,16 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 // Google Provider
 const provider = new GoogleAuthProvider();
+
+// ✅ 先設定 persistence（iOS Safari 很重要）
+setPersistence(auth, browserLocalPersistence)
+  .then(() => dbg("persistence=browserLocal OK"))
+  .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
 
 // 登入按鈕 → Safari 用 redirect 最穩
 btnLogin.onclick = () => {
@@ -232,49 +238,29 @@ btnLogin.onclick = () => {
 };
 
 // 登出
-btnLogout.onclick = () => {
-  signOut(auth);
-};
+btnLogout.onclick = () => signOut(auth);
 
-// 🔐 iOS Safari 專用：確保登入狀態可被保存
-(async () => {
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-    dbg("persistence=browserLocal OK");
-  } catch (e) {
-    dbg("persistence ERR=" + (e?.code || e));
-  }
-
-  // 接收 Google Redirect 回來的登入結果
-  try {
-    const result = await getRedirectResult(auth);
+// ✅ 回到頁面時先接 redirect 結果（有就會拿到 user）
+getRedirectResult(auth)
+  .then((result) => {
     if (result?.user) {
       dbg("Redirect login SUCCESS: " + (result.user.email || "(no email)"));
     } else {
       dbg("Redirect result: no user");
     }
-  } catch (e) {
-    dbg("Redirect ERR=" + (e?.code || e?.message || e));
-  }
+  })
+  .catch((e) => dbg("Redirect ERR=" + (e?.code || e?.message || e)));
 
-  // 🔥 真正決定有沒有登入的是這裡
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
-
-      loginState.textContent = "已登入：" + user.e…
-  // 🔥 監聽登入狀態（Safari 轉跳回來就靠這個）
-onAuthStateChanged(auth, user => {
+// ✅ 只留這一個：監聽登入狀態（UI 以這裡為準）
+onAuthStateChanged(auth, (user) => {
   if (user) {
-    dbg("AUTH STATE: logged in = " + user.email);
-
-    loginState.textContent = "已登入：" + user.email;
+    dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
+    loginState.textContent = "已登入：" + (user.email || "");
     btnLogin.style.display = "none";
     btnLogout.style.display = "inline-block";
     appPanel.style.display = "block";
   } else {
     dbg("AUTH STATE: not logged in");
-
     loginState.textContent = "尚未登入";
     btnLogin.style.display = "inline-block";
     btnLogout.style.display = "none";
