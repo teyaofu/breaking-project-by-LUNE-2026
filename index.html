@@ -75,11 +75,11 @@
       <div id="roleState" class="muted"></div>
     </div>
     <div class="row" style="margin-top:10px;">
-      <button type="button" class="btn primary" id="btnLogin">Google 登入</button>
+      <button class="btn primary" id="btnLogin">Google 登入</button>
       <button class="btn ghost" id="btnLogout">登出</button>
     </div>
     <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
-    <div id="debugMsg" style="margin-top:10px;color:#ffe600;font-size:16px;font-weight:900;white-space:pre-wrap;"></div>
+    <div id="debugMsg" class="muted" style="margin-top:6px;"></div>
   </div>
 
   <!-- APP -->
@@ -194,7 +194,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import {
     getAuth, GoogleAuthProvider,
-    signInWithRedirect, getRedirectResult,
+    signInWithPopup, signInWithRedirect, getRedirectResult,
     signOut, onAuthStateChanged, setPersistence, browserLocalPersistence
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
   import {
@@ -203,7 +203,7 @@
   } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
   // 允許名單（docId = email）
-  const ALLOWLIST_COL = "allowUsers";
+  const ALLOWLIST_COL = "霹靂舞";
   // 教練名單（docId = email, role:"coach"）
   const COACH_COL = "coaches";
   // records/{email}/items/{autoId} + records/{email}/meta/state (lastSig)
@@ -219,125 +219,21 @@
     measurementId: "G-7KD2654Y69"
   };
 
-  // ===== Firebase init =====
-window.addEventListener("DOMContentLoaded", () => {
-
-  // ===== Firebase init =====
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // ===== DOM =====
+  // DOM
   const $ = (id) => document.getElementById(id);
 
   const btnLogin   = $("btnLogin");
   const btnLogout  = $("btnLogout");
+
   const loginState = $("loginState");
   const roleState  = $("roleState");
   const gateMsg    = $("gateMsg");
   const debugMsg   = $("debugMsg");
-  const appPanel   = $("appPanel");
-  const adminPanel = $("adminPanel");
 
-  // 如果 DOM 沒抓到，直接顯示錯誤（這是你現在最可能的問題）
-  if (!btnLogin || !loginState || !debugMsg || !appPanel || !btnLogout) {
-    console.log("DOM missing:", { btnLogin, btnLogout, loginState, debugMsg, appPanel });
-    alert("JS 抓不到按鈕/畫面元件（btnLogin/loginState/debugMsg/appPanel/btnLogout），請確認 script 在頁面底部或使用我這版 DOMContentLoaded。");
-    return;
-  }
-
-  // Debug helper
-  function dbg(line) {
-    debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
-  }
-
-  // ===== Basic debug info =====
-  debugMsg.textContent = "";
-  dbg("BOOT OK");
-  dbg(`url=${location.href}`);
-  dbg(`ua=${navigator.userAgent}`);
-  dbg(`cookieEnabled=${navigator.cookieEnabled}`);
-
-  // localStorage test
-  try {
-    localStorage.setItem("__t", String(Date.now()));
-    localStorage.removeItem("__t");
-    dbg("localStorage=OK");
-  } catch (e) {
-    dbg("localStorage=BLOCKED");
-  }
-
-  // ===== Auth wiring =====
-  const provider = new GoogleAuthProvider();
-
-  setPersistence(auth, browserLocalPersistence)
-    .then(() => dbg("persistence=browserLocal OK"))
-    .catch(e => dbg("persistence ERR=" + (e?.code || e?.message || e)));
-
-  btnLogin.addEventListener("click", async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-
-  dbg("LOGIN CLICK → redirect (start)");
-  try {
-    await signInWithRedirect(auth, provider);
-    dbg("LOGIN redirect fired (should navigate now)");
-  } catch (err) {
-    dbg("LOGIN ERROR: " + (err?.code || err?.message || err));
-  }
-});
-
-  btnLogout.onclick = () => {
-    dbg("LOGOUT CLICK");
-    signOut(auth);
-  };
-
-  getRedirectResult(auth)
-    .then((result) => {
-      if (result?.user) {
-        dbg("Redirect login SUCCESS: " + (result.user.email || "(no email)"));
-      } else {
-        dbg("Redirect result: no user");
-      }
-    })
-    .catch((e) => dbg("Redirect ERR=" + (e?.code || e?.message || e)));
-
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      dbg("AUTH STATE: logged in = " + (user.email || "(no email)"));
-      loginState.textContent = "已登入：" + (user.email || "");
-      btnLogin.style.display = "none";
-      btnLogout.style.display = "inline-block";
-      appPanel.style.display = "block";
-    } else {
-      dbg("AUTH STATE: not logged in");
-      loginState.textContent = "尚未登入";
-      btnLogin.style.display = "inline-block";
-      btnLogout.style.display = "none";
-      appPanel.style.display = "none";
-    }
-  });
-
-});
- // ✅ Debug 基礎資訊
-function dbg(line){
-  debugMsg.textContent += (debugMsg.textContent ? "\n" : "") + line;
-}
-
-debugMsg.textContent = "";
-dbg("BOOT OK");
-dbg(`url=${location.href}`);
-dbg(`ua=${navigator.userAgent}`);
-dbg(`cookieEnabled=${navigator.cookieEnabled}`);
-
-// ✅ 測試 localStorage 能不能寫（iOS 有時會被限制）
-try{
-  localStorage.setItem("__t", String(Date.now()));
-  localStorage.removeItem("__t");
-  dbg("localStorage=OK");
-}catch(e){
-  dbg("localStorage=BLOCKED");
-}
   const appPanel   = $("appPanel");
   const adminPanel = $("adminPanel");
 
@@ -378,12 +274,7 @@ try{
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   await setPersistence(auth, browserLocalPersistence);
-try{
-  await setPersistence(auth, browserLocalPersistence);
-  dbg("persistence=browserLocal OK");
-}catch(e){
-  dbg(`persistence=ERR ${e?.code || e}`);
-}
+
   // redirect 回來一定要接（避免 iOS 回來像沒登入）
   try {
     const rr = await getRedirectResult(auth);
