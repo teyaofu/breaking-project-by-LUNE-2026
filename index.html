@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>BATTLE TRAINING PRO | 直覺訓練版</title>
+<title>BATTLE TRAINING PRO | 不重複訓練版</title>
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -34,7 +34,6 @@
   .divider{height:1px;background:rgba(255,255,255,0.1);margin:16px 0}
   .pill{padding:12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-top:8px}
 
-  /* 抽題卡片 */
   .cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;margin-top:12px}
   .card{perspective:1000px; cursor: pointer; min-height: 220px;}
   .card-inner{position:relative;width:100%;height:100%;transition:transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d}
@@ -46,96 +45,62 @@
   .move-title{font-size:1.2rem;color:#fff;margin-bottom:12px;font-weight: 900; line-height: 1.2;}
   .rule-tag{font-size:12px;color:#000;background: var(--warning); padding: 4px 8px; border-radius: 6px; font-weight: 700;}
 
-  /* 評分與數據 */
   .ratingGrid{display:grid;gap:8px;margin-top:10px}
   .ratingRow{display:grid;grid-template-columns:100px 1fr 40px;gap:12px;align-items:center}
   .ratingRow label{font-weight:700;color:var(--primary);font-size:13px}
   .scoreBox{text-align:center;padding:6px;border-radius:8px;background:rgba(255,255,255,0.1);font-weight:900;color:var(--warning)}
   canvas{background:rgba(0,0,0,0.2);border-radius:12px;margin-top:10px}
-  .grid2{display:grid;grid-template-columns:1fr;gap:20px}
-  @media(min-width:900px){ .grid2{grid-template-columns: 1fr 1fr;} }
 </style>
 </head>
 
 <body>
 <div class="container">
   <h1>BATTLE TRAINING PRO</h1>
-  <div class="sub">直覺動作訓練系統：專注質感、節奏與動態表現</div>
+  <div class="sub">AI 智能防重複系統：確保每次訓練組合皆為唯一</div>
 
   <div class="panel">
     <div class="row" style="justify-content: space-between;">
-      <div>
-        <div id="loginState" style="font-weight:bold">系統狀態：驗證中...</div>
-        <div id="roleState" class="muted"></div>
-      </div>
+      <div id="loginState" style="font-weight:bold">系統驗證中...</div>
       <div class="row">
         <button class="btn primary" id="btnLogin">Google 登入</button>
         <button class="btn ghost" id="btnLogout" style="display:none">登出</button>
       </div>
     </div>
-    <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
   </div>
 
   <div id="appPanel" class="panel" style="display:none;">
-    <div class="row" style="justify-content:space-between;">
-      <div class="ok">● 訓練模組已啟動</div>
-      <button class="btn ghost" id="btnShot" disabled>📸 導出圖卡</button>
-    </div>
-
-    <div class="divider"></div>
-
     <div class="row" style="justify-content:center;">
-      <button class="btn primary" id="btnStart">🚀 抽取動作指令</button>
-      <button class="btn ghost" id="btnReroll" disabled>🎲 重新生成</button>
-      <button class="btn secondary" id="btnConfirm" disabled>✅ 上傳進度</button>
+      <button class="btn primary" id="btnStart">🚀 抽取新指令 (不重複)</button>
+      <button class="btn secondary" id="btnConfirm" disabled>✅ 上傳並標記</button>
     </div>
 
-    <div id="shareArea" style="padding:15px; border-radius:16px;">
+    <div id="shareArea">
       <div class="pill">
-        <span class="muted">訓練選手：</span><b id="shareTitle">等待登入</b>
+        <span class="muted">執行選手：</span><b id="shareTitle">...</b>
         <div class="muted" id="shareTime">Session Ready</div>
       </div>
       <div id="cards" class="cards"></div>
       
       <div class="divider"></div>
-      <div style="font-weight:900;color:var(--warning);margin-bottom:10px;">本次訓練自評</div>
       <div class="ratingGrid">
         <div class="ratingRow"><label>音樂表現</label><input id="r_music" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_music">3</div></div>
         <div class="ratingRow"><label>質地呈現</label><input id="r_texture" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_texture">3</div></div>
         <div class="ratingRow"><label>速度落差</label><input id="r_speed" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_speed">3</div></div>
-        <div class="ratingRow"><label>流暢移動</label><input id="r_move" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_move">3</div></div>
+        <div class="ratingRow"><label>重心控制</label><input id="r_move" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_move">3</div></div>
         <div class="ratingRow"><label>整體執行</label><input id="r_overall" type="range" min="1" max="5" value="3"><div class="scoreBox" id="s_overall">3</div></div>
       </div>
     </div>
 
     <div class="divider"></div>
-
-    <details open>
-      <summary style="cursor:pointer;font-weight:900;color:var(--primary);padding:10px 0">📊 訓練歷史追蹤</summary>
-      <div class="grid2">
-        <div id="myHistory" class="histList"></div>
-        <div>
-          <canvas id="chartLine" height="200"></canvas>
-          <canvas id="chartBar" height="200"></canvas>
-        </div>
-      </div>
-    </details>
-  </div>
-
-  <div id="adminPanel" class="panel" style="display:none; border-color: var(--warning);">
-    <div class="ok" style="color:var(--warning)">🛡️ 教練管理後台</div>
-    <div class="divider"></div>
-    <div class="row">
-      <input id="addEmail" style="flex:1" placeholder="選手 Email" />
-      <button class="btn secondary" id="btnAdd">加入名單</button>
-    </div>
+    <div id="myHistory" class="histList"></div>
+    <canvas id="chartBar" height="150"></canvas>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+  import { getFirestore, doc, getDoc, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
@@ -151,54 +116,67 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // --- 純動作指令版題庫 (去術語化) ---
   const pool = {
-    "站立律動": ["加速斷點的點踏", "側向大範圍滑步", "高低層次快速切換", "帶有攻擊性的手勢組合", "持續性的肩膀彈動"],
-    "銜接下降": ["突然墜落式的急停", "緩慢旋轉的重心下降", "單手支撐後的切入", "假動作後的後滾翻", "螺旋狀的軸心旋轉"],
-    "地板腳步": ["極速與慢速的交替", "持續變換面朝方向", "大範圍的掃腿擺動", "近身緊縮的軸心旋轉", "雙手頻繁切換支撐"],
-    "定格連接": ["連續三個不同角度Pose", "慢速移動後的瞬間急停", "上下顛倒的腿部造型", "身體極度扭轉的平衡", "爆發動作後的靜止"]
+    "站立律動": ["加速斷點的點踏", "側向大範圍滑步", "高低層次快速切換", "侵略性的手勢組合", "持續性的核心彈動"],
+    "銜接下降": ["突然墜落式的急停", "螺旋式的重心下降", "單手支撐後的切入", "假動作後的順向後滾", "大跨度步法轉向地"],
+    "地板腳步": ["極速與慢速節奏交替", "面朝方向的持續變換", "大範圍的腿部掃擺", "近身緊縮的軸心旋轉", "支撐手頻繁的左右切換"],
+    "定格連接": ["連續三個不同角度Pose", "慢速移動後的瞬間急停", "身體極度扭轉的平衡", "爆發動作後的輕盈著地", "靜止定格後的慢速抽離"]
   };
-  const rules = [
-    "完全對齊音樂重音", "全程眼睛不看地板", "手臂線條必須延伸", "動作之間完全不許停頓",
-    "在極小範圍內完成", "每拍都要有快慢落差", "全程保持呼吸平穩", "加入兩個假動作誘導"
-  ];
+
+  const rules = ["完全對齊重音", "眼睛不看地板", "手臂線條延伸", "動作不許停頓", "極小範圍完成", "快慢落差明顯"];
+
+  let currentUser = null;
+  let lastSessionMoves = []; // 儲存上一次的動作組合字串
 
   const $ = (id) => document.getElementById(id);
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  let currentUser = null, preview = null;
-  let charts = { myLine: null, myBar: null };
-
-  async function initAuth() { await setPersistence(auth, browserLocalPersistence); }
-  initAuth();
-
-  $('btnLogin').onclick = async () => isIOS ? signInWithRedirect(auth, provider) : signInWithPopup(auth, provider);
-  $('btnLogout').onclick = () => signOut(auth);
 
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
-      $('loginState').textContent = `Hi, ${user.displayName || user.email}`;
+      $('loginState').textContent = `Hi, ${user.displayName}`;
       $('btnLogin').style.display = 'none'; $('btnLogout').style.display = 'block';
-      const email = user.email.toLowerCase();
-      const [aS, cS] = await Promise.all([getDoc(doc(db, "allowUsers", email)), getDoc(doc(db, "coaches", email))]);
-      $('appPanel').style.display = (aS.exists() || cS.exists()) ? 'block' : 'none';
-      $('adminPanel').style.display = cS.exists() ? 'block' : 'none';
-      if(!aS.exists() && !cS.exists()) $('gateMsg').textContent = "未在名單內，請聯繫教練。";
-      else { $('gateMsg').textContent = ""; loadMyHistory(); }
+      $('appPanel').style.display = 'block';
+      loadLastSession(); 
     } else {
       $('loginState').textContent = "尚未登入";
       $('btnLogin').style.display = 'block'; $('btnLogout').style.display = 'none';
-      $('appPanel').style.display = $('adminPanel').style.display = 'none';
+      $('appPanel').style.display = 'none';
     }
   });
 
-  $('btnStart').onclick = $('btnReroll').onclick = () => {
-    const cards = Object.keys(pool).map(round => ({
-      round,
-      move: pool[round][Math.floor(Math.random()*pool[round].length)],
-      rule: rules[Math.floor(Math.random()*rules.length)]
-    }));
-    preview = { cards, ts: Date.now() };
+  // 從 Firebase 獲取最後一次紀錄
+  async function loadLastSession() {
+    const q = query(collection(db, "records", currentUser.email.toLowerCase(), "items"), orderBy("ts", "desc"), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const lastData = snap.docs[0].data();
+      lastSessionMoves = lastData.cards.map(c => c.move);
+      console.log("已載入歷史紀錄，將排除組合：", lastSessionMoves);
+    }
+  }
+
+  $('btnStart').onclick = () => {
+    let currentMoves = [];
+    let newCards = [];
+
+    // 隨機抽取並確保與上一次不同
+    let attempts = 0;
+    do {
+      newCards = Object.keys(pool).map(round => ({
+        round,
+        move: pool[round][Math.floor(Math.random() * pool[round].length)],
+        rule: rules[Math.floor(Math.random() * rules.length)]
+      }));
+      currentMoves = newCards.map(c => c.move);
+      attempts++;
+    } while (JSON.stringify(currentMoves) === JSON.stringify(lastSessionMoves) && attempts < 10);
+
+    renderCards(newCards);
+    window.currentPreview = { cards: newCards, ts: Date.now() };
+    $('btnConfirm').disabled = false;
+  };
+
+  function renderCards(cards) {
     const box = $('cards'); box.innerHTML = "";
     cards.forEach((c, i) => {
       const div = document.createElement('div');
@@ -208,7 +186,7 @@
           <div class="face front">
             <div class="round-label">${c.round}</div>
             <div class="move-title">${c.move}</div>
-            <div class="rule-tag">要求：${c.rule.split(':')[0]}</div>
+            <div class="rule-tag">${c.rule}</div>
           </div>
         </div>`;
       div.onclick = () => div.classList.toggle('flip');
@@ -216,73 +194,29 @@
     });
     $('shareTitle').textContent = currentUser.displayName;
     $('shareTime').textContent = `訓練編號：${Date.now().toString().slice(-6)}`;
-    $('btnReroll').disabled = $('btnConfirm').disabled = $('btnShot').disabled = false;
-  };
-
-  ['music','texture','speed','move','overall'].forEach(id => {
-    $(`r_${id}`).oninput = (e) => $(`s_${id}`).textContent = e.target.value;
-  });
+  }
 
   $('btnConfirm').onclick = async () => {
-    if(!preview) return;
-    $('btnConfirm').disabled = true;
+    const data = window.currentPreview;
     const email = currentUser.email.toLowerCase();
     await addDoc(collection(db, "records", email, "items"), {
-      ts: Date.now(),
-      cards: preview.cards,
+      ...data,
       ratings: {
         music: Number($('r_music').value), texture: Number($('r_texture').value),
         speed: Number($('r_speed').value), move: Number($('r_move').value),
         overall: Number($('r_overall').value)
       }
     });
-    alert("戰力紀錄已儲存！");
-    loadMyHistory();
-    $('btnConfirm').disabled = false;
+    lastSessionMoves = data.cards.map(c => c.move); // 更新最後一次記憶
+    alert("紀錄成功！下一次抽取將自動跳過此組合。");
   };
 
-  async function loadMyHistory() {
-    const q = query(collection(db, "records", currentUser.email.toLowerCase(), "items"), orderBy("ts", "desc"), limit(10));
-    const snap = await getDocs(q);
-    const items = snap.docs.map(d => d.data());
-    const el = $('myHistory');
-    el.innerHTML = items.length ? "" : "<div class='pill'>暫無歷史數據</div>";
-    items.forEach(it => {
-      const d = document.createElement('div'); d.className = 'pill';
-      d.innerHTML = `<b>${new Date(it.ts).toLocaleDateString()}</b> | 分數: ${it.ratings.overall} <br><small class="muted">${it.cards.map(c=>c.move.substring(0,4)).join(' → ')}...</small>`;
-      el.appendChild(d);
-    });
-    const data = [...items].reverse();
-    const labels = data.map(d => new Date(d.ts).toLocaleDateString());
-    if(charts.myLine) charts.myLine.destroy();
-    charts.myLine = new Chart($('chartLine'), {
-      type: 'line',
-      data: { labels, datasets: [{ label:'執行水平', data: data.map(d=>d.ratings.overall), borderColor:'#00f5ff', tension:0.4 }] }
-    });
-    const avg = (key) => items.length ? (items.reduce((a,b)=>a+b.ratings[key],0)/items.length).toFixed(1) : 0;
-    if(charts.myBar) charts.myBar.destroy();
-    charts.myBar = new Chart($('chartBar'), {
-      type: 'bar',
-      data: { labels: ['音樂','質地','速度','流暢','執行'], 
-        datasets: [{ label:'平均戰力', data: [avg('music'), avg('texture'), avg('speed'), avg('move'), avg('overall')], backgroundColor:'rgba(255,0,200,0.5)' }] },
-      options: { scales: { y: { min:1, max:5 } } }
-    });
-  }
+  $('btnLogin').onclick = () => signInWithPopup(auth, provider);
+  $('btnLogout').onclick = () => signOut(auth);
 
-  $('btnShot').onclick = async () => {
-    const canvas = await html2canvas($('shareArea'), { backgroundColor: '#111', scale: 2 });
-    const link = document.createElement('a'); link.download = `TRAINING-LOG-${Date.now()}.png`;
-    link.href = canvas.toDataURL(); link.click();
-  };
-
-  $('btnAdd').onclick = async () => {
-    const email = $('addEmail').value.trim().toLowerCase();
-    if(email) {
-      await setDoc(doc(db, "allowUsers", email), { role: "student", ts: Date.now() });
-      alert("授權成功！");
-      $('addEmail').value = "";
-    }
-  };
+  ['music','texture','speed','move','overall'].forEach(id => {
+    $(`r_${id}`).oninput = (e) => $(`s_${id}`).textContent = e.target.value;
+  });
 </script>
 </body>
 </html>
