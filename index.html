@@ -37,7 +37,7 @@
   .pill{padding:12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);margin-top:8px}
   .pill b{color:var(--primary)}
 
-  /* Cards */
+  /* 抽題卡片 */
   .cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:14px;margin-top:12px}
   .card{perspective:1000px; cursor: pointer;}
   .card-inner{position:relative;width:100%;padding-top:140%;transition:transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d}
@@ -49,13 +49,13 @@
   .move{font-size:1.2rem;color:#fff;margin-bottom:8px;font-weight: bold;}
   .rule{font-size:14px;color:rgba(255,255,255,0.9)}
 
-  /* Ratings */
+  /* 評分條 */
   .ratingGrid{display:grid;gap:8px;margin-top:10px}
   .ratingRow{display:grid;grid-template-columns:100px 1fr 40px;gap:12px;align-items:center}
   .ratingRow label{font-weight:700;color:var(--primary);font-size:13px}
   .scoreBox{text-align:center;padding:6px;border-radius:8px;background:rgba(255,255,255,0.1);font-weight:900;color:var(--warning)}
 
-  /* Charts & History */
+  /* 數據列表 */
   canvas{background:rgba(0,0,0,0.2);border-radius:12px;margin-top:10px}
   .grid2{display:grid;grid-template-columns:1fr;gap:20px}
   @media(min-width:900px){ .grid2{grid-template-columns: 1fr 1fr;} }
@@ -80,7 +80,6 @@
       </div>
     </div>
     <div id="gateMsg" class="bad" style="margin-top:10px;"></div>
-    <div id="debugMsg" class="muted" style="margin-top:6px; font-size:10px;"></div>
   </div>
 
   <div id="appPanel" class="panel" style="display:none;">
@@ -135,16 +134,14 @@
     <div class="row">
       <input id="addEmail" style="flex:1" placeholder="輸入選手 Email" />
       <button class="btn secondary" id="btnAdd">新增名單</button>
-      <button class="btn danger" id="btnRemove">移除</button>
     </div>
-    <div id="adminMsg" class="muted" style="margin-top:8px"></div>
     <div class="divider"></div>
     <div class="row">
       <select id="studentSelect"><option value="">選擇查看學生</option></select>
       <button class="btn primary" id="btnLoadStudent">載入數據</button>
     </div>
     <div id="studentArea" style="display:none; margin-top:15px;">
-      <div class="pill"><b id="studentTitle"></b><div id="studentMeta" class="muted"></div></div>
+      <div class="pill"><b id="studentTitle"></b></div>
       <div class="grid2">
         <div id="studentHistory"></div>
         <div>
@@ -159,8 +156,9 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+  // Firebase 配置
   const firebaseConfig = {
     apiKey: "AIzaSyDqwvRJEEPPvT0-PUY9bTTwbikD9mI21XQ",
     authDomain: "breaking-814bf.firebaseapp.com",
@@ -175,31 +173,26 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // 工具函數
+  // 核心集合名稱定義
+  const COLLECTION_ALLOW = "allowUsers"; // 對接截圖中的集合名稱
+  const COLLECTION_COACH = "coaches";
+
   const $ = (id) => document.getElementById(id);
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-  // 狀態變量
-  let currentUser = null, isAllowed = false, isCoach = false, preview = null;
+  let currentUser = null, preview = null;
   let charts = { myLine: null, myBar: null, stuLine: null, stuBar: null };
 
-  // 初始化登入
+  // 初始化登入持久化
   async function initAuth() {
     await setPersistence(auth, browserLocalPersistence);
-    try {
-      const result = await getRedirectResult(auth);
-      if (result) console.log("Redirect login success");
-    } catch (e) { console.error(e); }
+    try { const res = await getRedirectResult(auth); } catch (e) {}
   }
   initAuth();
 
-  $('btnLogin').onclick = async () => {
-    if(isIOS) await signInWithRedirect(auth, provider);
-    else await signInWithPopup(auth, provider);
-  };
+  $('btnLogin').onclick = async () => isIOS ? signInWithRedirect(auth, provider) : signInWithPopup(auth, provider);
   $('btnLogout').onclick = () => signOut(auth);
 
-  // 訓練資料庫
+  // 題庫定義
   const pool = {
     "Top Rock": ["Rock 基本律動", "方向變化", "層次切換", "節奏斷點", "手臂線條"],
     "Go Down": ["乾淨落地", "控制重心", "突然下降", "地板切入", "假動作落地"],
@@ -208,83 +201,63 @@
   };
   const rules = ["音樂表現","質地呈現","速度差呈現","保持移動","空間運用","角度變化","呼吸控制","乾淨度"];
 
-  // 權限檢查
+  // 權限檢查邏輯
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
       $('loginState').textContent = `Hi, ${user.displayName || user.email}`;
-      $('btnLogin').style.display = 'none';
-      $('btnLogout').style.display = 'block';
+      $('btnLogin').style.display = 'none'; $('btnLogout').style.display = 'block';
       
       const email = user.email.toLowerCase();
-      const aSnap = await getDoc(doc(db, "霹靂舞", email));
-      const cSnap = await getDoc(doc(db, "coaches", email));
+      // 分別檢查學生與教練集合
+      const aSnap = await getDoc(doc(db, COLLECTION_ALLOW, email));
+      const cSnap = await getDoc(doc(db, COLLECTION_COACH, email));
       
-      isAllowed = aSnap.exists();
-      isCoach = cSnap.exists() && cSnap.data().role === 'coach';
+      const isAllowed = aSnap.exists();
+      const isCoach = cSnap.exists();
       
-      $('appPanel').style.display = isAllowed ? 'block' : 'none';
+      $('appPanel').style.display = (isAllowed || isCoach) ? 'block' : 'none';
       $('adminPanel').style.display = isCoach ? 'block' : 'none';
-      if(!isAllowed) $('gateMsg').textContent = "未在名單內，請聯繫教練。";
       
-      if(isAllowed) loadMyHistory();
+      if(!isAllowed && !isCoach) $('gateMsg').textContent = "未在名單內，請聯繫教練。";
+      else { $('gateMsg').textContent = ""; loadMyHistory(); }
+      
       if(isCoach) refreshStudentList();
     } else {
       $('loginState').textContent = "尚未登入";
-      $('btnLogin').style.display = 'block';
-      $('btnLogout').style.display = 'none';
+      $('btnLogin').style.display = 'block'; $('btnLogout').style.display = 'none';
       $('appPanel').style.display = $('adminPanel').style.display = 'none';
     }
   });
 
-  // 抽題邏輯
-  $('btnStart').onclick = $('btnReroll').onclick = async () => {
-    const email = currentUser.email.toLowerCase();
-    const lastSnap = await getDoc(doc(db, "records", email, "meta", "state"));
-    const lastSig = lastSnap.exists() ? lastSnap.data().lastSig : "";
-
-    let cards, sig;
-    do {
-      cards = Object.keys(pool).map(round => ({
-        round,
-        move: pool[round][Math.floor(Math.random()*pool[round].length)],
-        rule: rules[Math.floor(Math.random()*rules.length)]
-      }));
-      sig = cards.map(c => `${c.move}-${c.rule}`).join("|");
-    } while (sig === lastSig);
-
-    preview = { cards, sig, ts: Date.now() };
-    renderCards(cards);
-    $('shareTitle').textContent = `BATTLE TRAINING - ${currentUser.displayName || '選手'}`;
-    $('shareTime').textContent = `預覽時間：${new Date().toLocaleString()}`;
-    $('btnReroll').disabled = $('btnConfirm').disabled = $('btnShot').disabled = false;
-  };
-
-  function renderCards(cards) {
-    const box = $('cards');
-    box.innerHTML = "";
+  // 抽題與渲染
+  $('btnStart').onclick = $('btnReroll').onclick = () => {
+    const cards = Object.keys(pool).map(round => ({
+      round,
+      move: pool[round][Math.floor(Math.random()*pool[round].length)],
+      rule: rules[Math.floor(Math.random()*rules.length)]
+    }));
+    preview = { cards, ts: Date.now() };
+    const box = $('cards'); box.innerHTML = "";
     cards.forEach((c, i) => {
       const div = document.createElement('div');
       div.className = 'card';
-      div.innerHTML = `<div class="card-inner">
-        <div class="face back">ROUND ${i+1}</div>
-        <div class="face front">
-          <div class="round">${c.round}</div>
-          <div class="move">${c.move}</div>
-          <div class="rule">規則：${c.rule}</div>
-        </div>
-      </div>`;
+      div.innerHTML = `<div class="card-inner"><div class="face back">ROUND ${i+1}</div>
+        <div class="face front"><div class="round">${c.round}</div><div class="move">${c.move}</div><div class="rule">規則：${c.rule}</div></div></div>`;
       div.onclick = () => div.classList.toggle('flip');
       box.appendChild(div);
     });
-  }
+    $('shareTitle').textContent = `訓練者：${currentUser.displayName || currentUser.email}`;
+    $('shareTime').textContent = `時間：${new Date().toLocaleString()}`;
+    $('btnReroll').disabled = $('btnConfirm').disabled = $('btnShot').disabled = false;
+  };
 
-  // 評分條連動
+  // 評分條
   ['music','texture','speed','move','overall'].forEach(id => {
     $(`r_${id}`).oninput = (e) => $(`s_${id}`).textContent = e.target.value;
   });
 
-  // 上傳紀錄
+  // 上傳數據
   $('btnConfirm').onclick = async () => {
     if(!preview) return;
     $('btnConfirm').disabled = true;
@@ -293,21 +266,18 @@
       ts: Date.now(),
       cards: preview.cards,
       ratings: {
-        music: Number($('r_music').value),
-        texture: Number($('r_texture').value),
-        speed: Number($('r_speed').value),
-        move: Number($('r_move').value),
+        music: Number($('r_music').value), texture: Number($('r_texture').value),
+        speed: Number($('r_speed').value), move: Number($('r_move').value),
         overall: Number($('r_overall').value)
       }
     };
     await addDoc(collection(db, "records", email, "items"), data);
-    await setDoc(doc(db, "records", email, "meta", "state"), { lastSig: preview.sig });
     alert("記錄已存入雲端！");
     loadMyHistory();
     $('btnConfirm').disabled = false;
   };
 
-  // 數據與圖表
+  // 圖表與歷史紀錄
   async function loadMyHistory() {
     const items = await fetchRecords(currentUser.email.toLowerCase());
     renderHistory($('myHistory'), items);
@@ -323,9 +293,8 @@
   function renderHistory(el, items) {
     el.innerHTML = items.length ? "" : "<div class='pill'>暫無資料</div>";
     items.forEach(it => {
-      const d = document.createElement('div');
-      d.className = 'pill';
-      d.innerHTML = `<b>${new Date(it.ts).toLocaleDateString()}</b> - 整體: ${it.ratings.overall} <br>
+      const d = document.createElement('div'); d.className = 'pill';
+      d.innerHTML = `<b>${new Date(it.ts).toLocaleDateString()}</b> - 分數: ${it.ratings.overall} <br>
       <small class="muted">${it.cards.map(c=>c.move).join(" > ")}</small>`;
       el.appendChild(d);
     });
@@ -334,42 +303,35 @@
   function updateCharts(items, lineRef, barRef, lineId, barId) {
     const data = [...items].reverse();
     const labels = data.map(d => new Date(d.ts).toLocaleDateString());
-    
     if(charts[lineRef]) charts[lineRef].destroy();
     charts[lineRef] = new Chart($(lineId), {
       type: 'line',
-      data: { labels, datasets: [{ label:'整體評分', data: data.map(d=>d.ratings.overall), borderColor:'#00f5ff', tension:0.3 }] },
+      data: { labels, datasets: [{ label:'整體趨勢', data: data.map(d=>d.ratings.overall), borderColor:'#00f5ff', tension:0.3 }] },
       options: { scales: { y: { min:1, max:5 } } }
     });
-
     const avg = (key) => items.length ? (items.reduce((a,b)=>a+b.ratings[key],0)/items.length).toFixed(1) : 0;
     if(charts[barRef]) charts[barRef].destroy();
     charts[barRef] = new Chart($(barId), {
       type: 'bar',
-      data: { 
-        labels: ['音樂','質地','速度','移動','整體'], 
-        datasets: [{ label:'平均面向分', data: [avg('music'), avg('texture'), avg('speed'), avg('move'), avg('overall')], backgroundColor:'rgba(255,0,200,0.5)' }] 
-      },
+      data: { labels: ['音樂','質地','速度','移動','整體'], 
+        datasets: [{ label:'平均分', data: [avg('music'), avg('texture'), avg('speed'), avg('move'), avg('overall')], backgroundColor:'rgba(255,0,200,0.5)' }] },
       options: { scales: { y: { min:1, max:5 } } }
     });
   }
 
-  // 截圖
+  // 截圖下載
   $('btnShot').onclick = async () => {
     const canvas = await html2canvas($('shareArea'), { backgroundColor: '#000', scale: 2 });
-    const link = document.createElement('a');
-    link.download = `battle-train-${Date.now()}.png`;
-    link.href = canvas.toDataURL();
-    link.click();
+    const link = document.createElement('a'); link.download = `training-${Date.now()}.png`;
+    link.href = canvas.toDataURL(); link.click();
   };
 
-  // 教練後台邏輯
+  // 教練後台功能
   async function refreshStudentList() {
-    const snap = await getDocs(collection(db, "霹靂舞"));
+    const snap = await getDocs(collection(db, COLLECTION_ALLOW));
     $('studentSelect').innerHTML = '<option value="">選擇學生</option>';
     snap.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d.id; opt.textContent = d.id;
+      const opt = document.createElement('option'); opt.value = d.id; opt.textContent = d.id;
       $('studentSelect').appendChild(opt);
     });
   }
@@ -377,9 +339,8 @@
   $('btnAdd').onclick = async () => {
     const email = $('addEmail').value.trim().toLowerCase();
     if(email) {
-      await setDoc(doc(db, "霹靂舞", email), { addedAt: Date.now() });
-      alert("已加入名單");
-      refreshStudentList();
+      await setDoc(doc(db, COLLECTION_ALLOW, email), { role: "student", addedAt: Date.now() });
+      alert("選手已加入"); refreshStudentList();
     }
   };
 
